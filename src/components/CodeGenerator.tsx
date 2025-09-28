@@ -183,7 +183,6 @@ namespace GenNettaApp.Repositories
 }`;
 
   const generateController = (tableName: string) => `using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Authorization;
 using GenNettaApp.Models;
 using GenNettaApp.Repositories;
 
@@ -191,7 +190,6 @@ namespace GenNettaApp.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize]
     public class ${tableName}sController : ControllerBase
     {
         private readonly I${tableName}Repository _repository;
@@ -285,13 +283,11 @@ namespace GenNettaApp.Controllers
 }`;
 
   const generateMvcController = (tableName: string) => `using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Authorization;
 using GenNettaApp.Models;
 using GenNettaApp.Repositories;
 
 namespace GenNettaApp.Controllers
 {
-    [Authorize]
     public class ${tableName}Controller : Controller
     {
         private readonly I${tableName}Repository _repository;
@@ -682,7 +678,6 @@ namespace GenNettaApp.Controllers
 
   const generateMicroservice = (tableName: string) => `using GenNettaApp.Models;
 using GenNettaApp.Repositories;
-using Microsoft.AspNetCore.Authorization;
 
 namespace GenNettaApp.Services
 {
@@ -695,7 +690,6 @@ namespace GenNettaApp.Services
         Task DeleteAsync(int id);
     }
     
-    [Authorize]
     public class ${tableName}Service : I${tableName}Service
     {
         private readonly I${tableName}Repository _repository;
