@@ -62,12 +62,19 @@ const CodeGenerator = ({ selectedTables, onReset }: CodeGeneratorProps) => {
                 { name: `Models/${table}.cs`, type: "Entity Model", lines: 45 },
                 { name: `Repositories/I${table}Repository.cs`, type: "Repository Interface", lines: 22 },
                 { name: `Repositories/${table}Repository.cs`, type: "Repository Implementation", lines: 89 },
-                { name: `Controllers/${table}sController.cs`, type: "MVC Controller", lines: 156 },
+                { name: `Controllers/${table}sController.cs`, type: "API Controller", lines: 156 },
+                { name: `Controllers/${table}sViewController.cs`, type: "MVC Controller", lines: 184 },
+                { name: `Views/${table}s/Index.cshtml`, type: "Index View", lines: 67 },
+                { name: `Views/${table}s/Details.cshtml`, type: "Details View", lines: 45 },
+                { name: `Views/${table}s/Create.cshtml`, type: "Create View", lines: 52 },
+                { name: `Views/${table}s/Edit.cshtml`, type: "Edit View", lines: 58 },
+                { name: `Views/${table}s/Delete.cshtml`, type: "Delete View", lines: 38 },
                 { name: `Services/${table}Microservice.cs`, type: "Microservice", lines: 203 }
               );
             });
             files.push(
               { name: "Models/ApplicationDbContext.cs", type: "Database Context", lines: 67 },
+              { name: "Views/Shared/_Layout.cshtml", type: "Layout View", lines: 89 },
               { name: "Auth/GoogleOAuthConfig.cs", type: "Authentication", lines: 67 },
               { name: "Program.cs", type: "Application Entry", lines: 78 }
             );
@@ -276,6 +283,402 @@ namespace GenNettaApp.Controllers
         }
     }
 }`;
+
+  const generateMvcController = (tableName: string) => `using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
+using GenNettaApp.Models;
+using GenNettaApp.Repositories;
+
+namespace GenNettaApp.Controllers
+{
+    [Authorize]
+    public class ${tableName}sViewController : Controller
+    {
+        private readonly I${tableName}Repository _repository;
+        
+        public ${tableName}sViewController(I${tableName}Repository repository)
+        {
+            _repository = repository;
+        }
+        
+        // GET: ${tableName}s
+        public async Task<IActionResult> Index()
+        {
+            var entities = await _repository.GetAllAsync();
+            return View(entities);
+        }
+        
+        // GET: ${tableName}s/Details/5
+        public async Task<IActionResult> Details(int? id)
+        {
+            if (id == null)
+                return NotFound();
+                
+            var entity = await _repository.GetByIdAsync(id.Value);
+            if (entity == null)
+                return NotFound();
+                
+            return View(entity);
+        }
+        
+        // GET: ${tableName}s/Create
+        public IActionResult Create()
+        {
+            return View();
+        }
+        
+        // POST: ${tableName}s/Create
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Create([Bind("Name")] ${tableName} entity)
+        {
+            if (ModelState.IsValid)
+            {
+                await _repository.CreateAsync(entity);
+                return RedirectToAction(nameof(Index));
+            }
+            return View(entity);
+        }
+        
+        // GET: ${tableName}s/Edit/5
+        public async Task<IActionResult> Edit(int? id)
+        {
+            if (id == null)
+                return NotFound();
+                
+            var entity = await _repository.GetByIdAsync(id.Value);
+            if (entity == null)
+                return NotFound();
+                
+            return View(entity);
+        }
+        
+        // POST: ${tableName}s/Edit/5
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Edit(int id, [Bind("Id,Name")] ${tableName} entity)
+        {
+            if (id != entity.Id)
+                return NotFound();
+                
+            if (ModelState.IsValid)
+            {
+                try
+                {
+                    await _repository.UpdateAsync(entity);
+                }
+                catch (Exception)
+                {
+                    if (await _repository.GetByIdAsync(entity.Id) == null)
+                        return NotFound();
+                    throw;
+                }
+                return RedirectToAction(nameof(Index));
+            }
+            return View(entity);
+        }
+        
+        // GET: ${tableName}s/Delete/5
+        public async Task<IActionResult> Delete(int? id)
+        {
+            if (id == null)
+                return NotFound();
+                
+            var entity = await _repository.GetByIdAsync(id.Value);
+            if (entity == null)
+                return NotFound();
+                
+            return View(entity);
+        }
+        
+        // POST: ${tableName}s/Delete/5
+        [HttpPost, ActionName("Delete")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> DeleteConfirmed(int id)
+        {
+            await _repository.DeleteAsync(id);
+            return RedirectToAction(nameof(Index));
+        }
+    }
+}`;
+
+  const generateIndexView = (tableName: string) => `@model IEnumerable<GenNettaApp.Models.${tableName}>
+
+@{
+    ViewData["Title"] = "${tableName}s";
+}
+
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>${tableName}s</h2>
+        <a asp-action="Create" class="btn btn-primary">
+            <i class="fas fa-plus"></i> Create New ${tableName}
+        </a>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>@Html.DisplayNameFor(model => model.Name)</th>
+                            <th>@Html.DisplayNameFor(model => model.CreatedAt)</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in Model)
+                        {
+                            <tr>
+                                <td>@Html.DisplayFor(modelItem => item.Name)</td>
+                                <td>@Html.DisplayFor(modelItem => item.CreatedAt)</td>
+                                <td>
+                                    <div class="btn-group" role="group">
+                                        <a asp-action="Details" asp-route-id="@item.Id" class="btn btn-sm btn-outline-info">
+                                            <i class="fas fa-eye"></i> Details
+                                        </a>
+                                        <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-outline-warning">
+                                            <i class="fas fa-edit"></i> Edit
+                                        </a>
+                                        <a asp-action="Delete" asp-route-id="@item.Id" class="btn btn-sm btn-outline-danger">
+                                            <i class="fas fa-trash"></i> Delete
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>`;
+
+  const generateDetailsView = (tableName: string) => `@model GenNettaApp.Models.${tableName}
+
+@{
+    ViewData["Title"] = "${tableName} Details";
+}
+
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h4>${tableName} Details</h4>
+                </div>
+                <div class="card-body">
+                    <dl class="row">
+                        <dt class="col-sm-3">@Html.DisplayNameFor(model => model.Name)</dt>
+                        <dd class="col-sm-9">@Html.DisplayFor(model => model.Name)</dd>
+                        
+                        <dt class="col-sm-3">@Html.DisplayNameFor(model => model.CreatedAt)</dt>
+                        <dd class="col-sm-9">@Html.DisplayFor(model => model.CreatedAt)</dd>
+                        
+                        @if (Model.UpdatedAt.HasValue)
+                        {
+                            <dt class="col-sm-3">@Html.DisplayNameFor(model => model.UpdatedAt)</dt>
+                            <dd class="col-sm-9">@Html.DisplayFor(model => model.UpdatedAt)</dd>
+                        }
+                    </dl>
+                </div>
+                <div class="card-footer">
+                    <div class="btn-group">
+                        <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-warning">
+                            <i class="fas fa-edit"></i> Edit
+                        </a>
+                        <a asp-action="Index" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left"></i> Back to List
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>`;
+
+  const generateCreateView = (tableName: string) => `@model GenNettaApp.Models.${tableName}
+
+@{
+    ViewData["Title"] = "Create ${tableName}";
+}
+
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h4>Create New ${tableName}</h4>
+                </div>
+                <div class="card-body">
+                    <form asp-action="Create">
+                        <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+                        
+                        <div class="form-group mb-3">
+                            <label asp-for="Name" class="form-label"></label>
+                            <input asp-for="Name" class="form-control" />
+                            <span asp-validation-for="Name" class="text-danger"></span>
+                        </div>
+                        
+                        <div class="form-group">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Create
+                            </button>
+                            <a asp-action="Index" class="btn btn-secondary">
+                                <i class="fas fa-times"></i> Cancel
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}`;
+
+  const generateEditView = (tableName: string) => `@model GenNettaApp.Models.${tableName}
+
+@{
+    ViewData["Title"] = "Edit ${tableName}";
+}
+
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h4>Edit ${tableName}</h4>
+                </div>
+                <div class="card-body">
+                    <form asp-action="Edit">
+                        <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+                        
+                        <input type="hidden" asp-for="Id" />
+                        <input type="hidden" asp-for="CreatedAt" />
+                        
+                        <div class="form-group mb-3">
+                            <label asp-for="Name" class="form-label"></label>
+                            <input asp-for="Name" class="form-control" />
+                            <span asp-validation-for="Name" class="text-danger"></span>
+                        </div>
+                        
+                        <div class="form-group">
+                            <button type="submit" class="btn btn-warning">
+                                <i class="fas fa-save"></i> Update
+                            </button>
+                            <a asp-action="Index" class="btn btn-secondary">
+                                <i class="fas fa-times"></i> Cancel
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}`;
+
+  const generateDeleteView = (tableName: string) => `@model GenNettaApp.Models.${tableName}
+
+@{
+    ViewData["Title"] = "Delete ${tableName}";
+}
+
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card border-danger">
+                <div class="card-header bg-danger text-white">
+                    <h4>Delete ${tableName}</h4>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        Are you sure you want to delete this ${tableName}?
+                    </div>
+                    
+                    <dl class="row">
+                        <dt class="col-sm-3">@Html.DisplayNameFor(model => model.Name)</dt>
+                        <dd class="col-sm-9">@Html.DisplayFor(model => model.Name)</dd>
+                        
+                        <dt class="col-sm-3">@Html.DisplayNameFor(model => model.CreatedAt)</dt>
+                        <dd class="col-sm-9">@Html.DisplayFor(model => model.CreatedAt)</dd>
+                    </dl>
+                    
+                    <form asp-action="Delete">
+                        <input type="hidden" asp-for="Id" />
+                        <div class="form-group">
+                            <button type="submit" class="btn btn-danger">
+                                <i class="fas fa-trash"></i> Delete
+                            </button>
+                            <a asp-action="Index" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left"></i> Back to List
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>`;
+
+  const generateLayoutView = () => `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - GenNetta App</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+</head>
+<body>
+    <header>
+        <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-dark bg-primary border-bottom box-shadow mb-3">
+            <div class="container-fluid">
+                <a class="navbar-brand" asp-area="" asp-controller="Home" asp-action="Index">GenNetta App</a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" 
+                        aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
+                    <ul class="navbar-nav flex-grow-1">
+                        <li class="nav-item">
+                            <a class="nav-link" asp-area="" asp-controller="Home" asp-action="Index">Home</a>
+                        </li>
+                        ${selectedTables.map(table => `
+                        <li class="nav-item">
+                            <a class="nav-link" asp-controller="${table}sView" asp-action="Index">${table}s</a>
+                        </li>`).join('')}
+                    </ul>
+                </div>
+            </div>
+        </nav>
+    </header>
+    <div class="container">
+        <main role="main" class="pb-3">
+            @RenderBody()
+        </main>
+    </div>
+
+    <footer class="border-top footer text-muted">
+        <div class="container">
+            &copy; 2024 - GenNetta App - Generated by GenNetta
+        </div>
+    </footer>
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>`;
 
   const generateMicroservice = (tableName: string) => `using GenNettaApp.Models;
 using GenNettaApp.Repositories;
@@ -522,8 +925,17 @@ ${selectedTables.map(table => `
       projectFiles[`GenNettaApp/Models/${tableName}.cs`] = generateEntityModel(tableName);
       projectFiles[`GenNettaApp/Repositories/${tableName}Repository.cs`] = generateRepository(tableName);
       projectFiles[`GenNettaApp/Controllers/${tableName}sController.cs`] = generateController(tableName);
+      projectFiles[`GenNettaApp/Controllers/${tableName}sViewController.cs`] = generateMvcController(tableName);
+      projectFiles[`GenNettaApp/Views/${tableName}s/Index.cshtml`] = generateIndexView(tableName);
+      projectFiles[`GenNettaApp/Views/${tableName}s/Details.cshtml`] = generateDetailsView(tableName);
+      projectFiles[`GenNettaApp/Views/${tableName}s/Create.cshtml`] = generateCreateView(tableName);
+      projectFiles[`GenNettaApp/Views/${tableName}s/Edit.cshtml`] = generateEditView(tableName);
+      projectFiles[`GenNettaApp/Views/${tableName}s/Delete.cshtml`] = generateDeleteView(tableName);
       projectFiles[`GenNettaApp/Services/${tableName}Service.cs`] = generateMicroservice(tableName);
     });
+
+    // Add shared layout
+    projectFiles[`GenNettaApp/Views/Shared/_Layout.cshtml`] = generateLayoutView();
     
     // Add all files to zip
     Object.entries(projectFiles).forEach(([path, content]) => {
