@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Database, CheckCircle, AlertCircle, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { createClient } from '@supabase/supabase-js';
 
 interface Column {
   name: string;
@@ -48,24 +49,25 @@ const DatabaseConnection = ({ onConnectionSuccess }: DatabaseConnectionProps) =>
     setConnectionStatus("idle");
 
     try {
-      // Use Supabase Edge Function to connect to your SQL Server database
-      const response = await fetch('/functions/v1/analyze-sqlserver-schema', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-        },
-        body: JSON.stringify({ 
-          connectionString: connectionString 
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      // Initialize Supabase client with environment variables
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      
+      if (!supabaseUrl || !supabaseAnonKey) {
+        throw new Error('Supabase configuration not found. Please ensure your Supabase project is properly connected.');
       }
 
-      const data = await response.json();
-      
+      const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+      // Call the edge function using Supabase client
+      const { data, error } = await supabase.functions.invoke('analyze-sqlserver-schema', {
+        body: { connectionString: connectionString }
+      });
+
+      if (error) {
+        throw new Error(error.message || 'Failed to analyze database schema');
+      }
+
       if (!data.success) {
         throw new Error(data.error || 'Failed to analyze database schema');
       }
