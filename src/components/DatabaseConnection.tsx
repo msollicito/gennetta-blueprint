@@ -49,55 +49,29 @@ const DatabaseConnection = ({ onConnectionSuccess }: DatabaseConnectionProps) =>
     setConnectionStatus("idle");
 
     try {
-      // For demo purposes, simulate a realistic database schema
-      // In production, this would connect to your cloud-hosted SQL Server
+      // Call the edge function to analyze the actual SQL Server database
+      const { data, error } = await supabase.functions.invoke('analyze-sqlserver-schema', {
+        body: { connectionString: connectionString }
+      });
+
+      if (error) {
+        throw new Error(error.message || 'Failed to analyze database schema');
+      }
+
+      if (!data || !data.success) {
+        throw new Error(data?.error || 'Failed to analyze database schema');
+      }
+
       const schema = {
-        tables: [
-          {
-            name: "Users",
-            columns: [
-              { name: "UserID", type: "int", nullable: false, primaryKey: true },
-              { name: "Username", type: "nvarchar", nullable: false },
-              { name: "Email", type: "nvarchar", nullable: false },
-              { name: "PasswordHash", type: "nvarchar", nullable: false },
-              { name: "FirstName", type: "nvarchar", nullable: true },
-              { name: "LastName", type: "nvarchar", nullable: true },
-              { name: "CreatedDate", type: "datetime", nullable: false },
-              { name: "IsActive", type: "bit", nullable: false }
-            ]
-          },
-          {
-            name: "Products",
-            columns: [
-              { name: "ProductID", type: "int", nullable: false, primaryKey: true },
-              { name: "ProductName", type: "nvarchar", nullable: false },
-              { name: "Description", type: "ntext", nullable: true },
-              { name: "Price", type: "decimal", nullable: false },
-              { name: "CategoryID", type: "int", nullable: true },
-              { name: "StockQuantity", type: "int", nullable: false },
-              { name: "CreatedDate", type: "datetime", nullable: false }
-            ]
-          },
-          {
-            name: "Orders",
-            columns: [
-              { name: "OrderID", type: "int", nullable: false, primaryKey: true },
-              { name: "UserID", type: "int", nullable: false },
-              { name: "OrderDate", type: "datetime", nullable: false },
-              { name: "TotalAmount", type: "decimal", nullable: false },
-              { name: "Status", type: "nvarchar", nullable: false },
-              { name: "ShippingAddress", type: "nvarchar", nullable: true }
-            ]
-          },
-          {
-            name: "Categories",
-            columns: [
-              { name: "CategoryID", type: "int", nullable: false, primaryKey: true },
-              { name: "CategoryName", type: "nvarchar", nullable: false },
-              { name: "Description", type: "ntext", nullable: true }
-            ]
-          }
-        ]
+        tables: data.tables.map((table: any) => ({
+          name: table.name,
+          columns: table.columns.map((col: any) => ({
+            name: col.name,
+            type: col.type,
+            nullable: col.nullable,
+            primaryKey: col.primaryKey || false
+          }))
+        }))
       };
 
       setConnectionStatus("success");
