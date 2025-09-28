@@ -63,7 +63,7 @@ const CodeGenerator = ({ selectedTables, onReset }: CodeGeneratorProps) => {
                 { name: `Repositories/I${table}Repository.cs`, type: "Repository Interface", lines: 22 },
                 { name: `Repositories/${table}Repository.cs`, type: "Repository Implementation", lines: 89 },
                 { name: `Controllers/${table}sController.cs`, type: "API Controller", lines: 156 },
-                { name: `Controllers/${table}sViewController.cs`, type: "MVC Controller", lines: 184 },
+                { name: `Controllers/${table}Controller.cs`, type: "MVC Controller", lines: 184 },
                 { name: `Views/${table}s/Index.cshtml`, type: "Index View", lines: 67 },
                 { name: `Views/${table}s/Details.cshtml`, type: "Details View", lines: 45 },
                 { name: `Views/${table}s/Create.cshtml`, type: "Create View", lines: 52 },
@@ -292,11 +292,11 @@ using GenNettaApp.Repositories;
 namespace GenNettaApp.Controllers
 {
     [Authorize]
-    public class ${tableName}sViewController : Controller
+    public class ${tableName}Controller : Controller
     {
         private readonly I${tableName}Repository _repository;
         
-        public ${tableName}sViewController(I${tableName}Repository repository)
+        public ${tableName}Controller(I${tableName}Repository repository)
         {
             _repository = repository;
         }
@@ -654,9 +654,9 @@ namespace GenNettaApp.Controllers
                             <a class="nav-link" asp-area="" asp-controller="Home" asp-action="Index">Home</a>
                         </li>
                         ${selectedTables.map(table => `
-                        <li class="nav-item">
-                            <a class="nav-link" asp-controller="${table}sView" asp-action="Index">${table}s</a>
-                        </li>`).join('')}
+                         <li class="nav-item">
+                             <a class="nav-link" asp-controller="${table}" asp-action="Index">${table}s</a>
+                         </li>`).join('')}
                     </ul>
                 </div>
             </div>
@@ -969,7 +969,7 @@ namespace GenNettaApp.Controllers
                 <div class="card-body">
                     <h5 class="card-title">${table} Management</h5>
                     <p class="card-text">Manage ${table} records with full CRUD operations.</p>
-                    <a href="/${table}sView" class="btn btn-primary">View ${table}s</a>
+                    <a href="/${table}" class="btn btn-primary">View ${table}s</a>
                 </div>
             </div>
         </div>`).join('')}
@@ -1101,7 +1101,7 @@ ${selectedTables.map(table => `
 `).join('')}
 
 ## Web Interface
-${selectedTables.map(table => `- **${table} Management**: \`/${table}sView\` - Full CRUD interface`).join('\n')}
+${selectedTables.map(table => `- **${table} Management**: \`/${table}\` - Full CRUD interface`).join('\n')}
 
 ## Configuration
 
@@ -1163,7 +1163,7 @@ dotnet ef database update
       projectFiles[`GenNettaApp/Models/${tableName}.cs`] = generateEntityModel(tableName);
       projectFiles[`GenNettaApp/Repositories/${tableName}Repository.cs`] = generateRepository(tableName);
       projectFiles[`GenNettaApp/Controllers/${tableName}sController.cs`] = generateController(tableName);
-      projectFiles[`GenNettaApp/Controllers/${tableName}sViewController.cs`] = generateMvcController(tableName);
+      projectFiles[`GenNettaApp/Controllers/${tableName}Controller.cs`] = generateMvcController(tableName);
       projectFiles[`GenNettaApp/Views/${tableName}s/Index.cshtml`] = generateIndexView(tableName);
       projectFiles[`GenNettaApp/Views/${tableName}s/Details.cshtml`] = generateDetailsView(tableName);
       projectFiles[`GenNettaApp/Views/${tableName}s/Create.cshtml`] = generateCreateView(tableName);
