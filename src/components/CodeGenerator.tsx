@@ -147,17 +147,17 @@ namespace GenNettaApp.Repositories
         
         public async Task<IEnumerable<${tableName}>> GetAllAsync()
         {
-            return await _context.${tableName}s.ToListAsync();
+            return await _context.${tableName}.ToListAsync();
         }
         
         public async Task<${tableName}?> GetByIdAsync(int id)
         {
-            return await _context.${tableName}s.FindAsync(id);
+            return await _context.${tableName}.FindAsync(id);
         }
         
         public async Task<${tableName}> CreateAsync(${tableName} entity)
         {
-            _context.${tableName}s.Add(entity);
+            _context.${tableName}.Add(entity);
             await _context.SaveChangesAsync();
             return entity;
         }
@@ -172,10 +172,10 @@ namespace GenNettaApp.Repositories
         
         public async Task DeleteAsync(int id)
         {
-            var entity = await _context.${tableName}s.FindAsync(id);
+            var entity = await _context.${tableName}.FindAsync(id);
             if (entity != null)
             {
-                _context.${tableName}s.Remove(entity);
+                _context.${tableName}.Remove(entity);
                 await _context.SaveChangesAsync();
             }
         }
@@ -743,7 +743,7 @@ namespace GenNettaApp.Services
     const zip = new JSZip();
     
     // Generate DbSets for all tables
-    const dbSets = selectedTables.map(table => `        public DbSet<${table}> ${table}s { get; set; }`).join('\n');
+    const dbSets = selectedTables.map(table => `        public DbSet<${table}> ${table} { get; set; }`).join('\n');
     const dbConfigEntities = selectedTables.map(table => 
       `            modelBuilder.Entity<${table}>(entity =>
             {
