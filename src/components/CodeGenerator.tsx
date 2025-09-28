@@ -789,9 +789,13 @@ using GenNettaApp.Services;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+if (!connectionString.Contains("TrustServerCertificate"))
+{
+    connectionString += ";TrustServerCertificate=true";
+}
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"),
-        sqlOptions => sqlOptions.TrustServerCertificate()));
+    options.UseSqlServer(connectionString));
 
 // Register repositories
 ${repositoryRegistrations}
