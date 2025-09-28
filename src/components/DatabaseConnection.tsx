@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Database, CheckCircle, AlertCircle, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from "@/integrations/supabase/client";
 
 interface Column {
   name: string;
@@ -49,17 +49,7 @@ const DatabaseConnection = ({ onConnectionSuccess }: DatabaseConnectionProps) =>
     setConnectionStatus("idle");
 
     try {
-      // Initialize Supabase client with environment variables
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-      
-      if (!supabaseUrl || !supabaseAnonKey) {
-        throw new Error('Supabase configuration not found. Please ensure your Supabase project is properly connected.');
-      }
-
-      const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
-      // Call the edge function using Supabase client
+      // Call the edge function using the pre-configured Supabase client
       const { data, error } = await supabase.functions.invoke('analyze-sqlserver-schema', {
         body: { connectionString: connectionString }
       });
