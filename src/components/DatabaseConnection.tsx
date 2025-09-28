@@ -35,76 +35,66 @@ const DatabaseConnection = ({ onConnectionSuccess }: DatabaseConnectionProps) =>
   const { toast } = useToast();
 
   const handleTestConnection = async () => {
+    if (!connectionString.trim()) {
+      toast({
+        title: "Connection String Required",
+        description: "Please enter a valid SQL Server connection string.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsConnecting(true);
     setConnectionStatus("idle");
 
     try {
-      // Since Supabase is already connected via Lovable, let's simulate loading real schema
-      // In a real implementation, this would fetch from your actual Supabase tables
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // Use Supabase Edge Function to connect to your SQL Server database
+      const response = await fetch('/functions/v1/analyze-sqlserver-schema', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.VITE_SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({ 
+          connectionString: connectionString 
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
       
-      // For now, let's create a more realistic demo that could represent real tables
-      // This will be replaced with actual Supabase schema introspection
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to analyze database schema');
+      }
+
       const schema = {
-        tables: [
-          { 
-            name: "profiles", 
-            columns: [
-              { name: "id", type: "uuid", nullable: false, primaryKey: true },
-              { name: "email", type: "text", nullable: false },
-              { name: "full_name", type: "text", nullable: true },
-              { name: "avatar_url", type: "text", nullable: true },
-              { name: "created_at", type: "timestamp", nullable: false },
-              { name: "updated_at", type: "timestamp", nullable: true }
-            ]
-          },
-          { 
-            name: "posts", 
-            columns: [
-              { name: "id", type: "uuid", nullable: false, primaryKey: true },
-              { name: "title", type: "text", nullable: false },
-              { name: "content", type: "text", nullable: true },
-              { name: "author_id", type: "uuid", nullable: false },
-              { name: "published", type: "boolean", nullable: false },
-              { name: "created_at", type: "timestamp", nullable: false },
-              { name: "updated_at", type: "timestamp", nullable: true }
-            ]
-          },
-          { 
-            name: "comments", 
-            columns: [
-              { name: "id", type: "uuid", nullable: false, primaryKey: true },
-              { name: "post_id", type: "uuid", nullable: false },
-              { name: "author_id", type: "uuid", nullable: false },
-              { name: "content", type: "text", nullable: false },
-              { name: "created_at", type: "timestamp", nullable: false }
-            ]
-          },
-          { 
-            name: "categories", 
-            columns: [
-              { name: "id", type: "uuid", nullable: false, primaryKey: true },
-              { name: "name", type: "text", nullable: false },
-              { name: "description", type: "text", nullable: true },
-              { name: "color", type: "text", nullable: true },
-              { name: "created_at", type: "timestamp", nullable: false }
-            ]
-          }
-        ]
+        tables: data.tables.map((table: any) => ({
+          name: table.name,
+          columns: table.columns.map((col: any) => ({
+            name: col.name,
+            type: col.type,
+            nullable: col.nullable,
+            primaryKey: col.primaryKey || false
+          }))
+        }))
       };
 
       setConnectionStatus("success");
       toast({
-        title: "Supabase Schema Loaded!",
-        description: `Found ${schema.tables.length} tables in your connected Supabase database.`,
+        title: "Database Connected!",
+        description: `Successfully analyzed ${schema.tables.length} tables from your SQL Server database.`,
       });
 
-      onConnectionSuccess("Supabase Connected", schema);
+      onConnectionSuccess(connectionString, schema);
     } catch (error) {
+      console.error('Database connection error:', error);
       setConnectionStatus("error");
       toast({
-        title: "Schema Load Failed",
-        description: "Unable to load database schema from Supabase.",
+        title: "Connection Failed",
+        description: error instanceof Error ? error.message : "Unable to connect to the database. Please check your connection string.",
         variant: "destructive",
       });
     } finally {
@@ -138,36 +128,44 @@ const DatabaseConnection = ({ onConnectionSuccess }: DatabaseConnectionProps) =>
     <div className="space-y-6">
       <div className="text-center">
         <h2 className="text-2xl font-bold text-foreground mb-2">
-          Load Supabase Database Schema
+          Connect to SQL Server Database
         </h2>
         <p className="text-muted-foreground">
-          Load your connected Supabase database tables to generate .NET Core code
+          Enter your SQL Server connection string to analyze your actual database schema
         </p>
       </div>
 
       <Card className="p-6 shadow-card">
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <Label className="text-base font-semibold flex items-center gap-2">
+            <Label htmlFor="connection-string" className="text-base font-semibold flex items-center gap-2">
               {getStatusIcon()}
-              Supabase Database Connection
+              SQL Server Connection String
             </Label>
             {getStatusBadge()}
           </div>
 
+          <Textarea
+            id="connection-string"
+            placeholder="Server=localhost;Database=MyDatabase;Trusted_Connection=true;"
+            value={connectionString}
+            onChange={(e) => setConnectionString(e.target.value)}
+            rows={3}
+            className="font-mono text-sm"
+          />
+
           <div className="bg-muted/50 p-4 rounded-lg">
-            <h4 className="font-medium text-sm mb-2">Connected Supabase Features:</h4>
-            <div className="space-y-1 text-xs text-muted-foreground">
-              <div>✓ Real-time database with PostgreSQL</div>
-              <div>✓ Built-in authentication and user management</div>
-              <div>✓ Row Level Security (RLS) policies</div>
-              <div>✓ API auto-generation from your schema</div>
+            <h4 className="font-medium text-sm mb-2">Example Connection Strings:</h4>
+            <div className="space-y-1 text-xs font-mono text-muted-foreground">
+              <div>• SQL Server Auth: <code>Server=server;Database=db;User Id=user;Password=pass;</code></div>
+              <div>• Windows Auth: <code>Server=server;Database=db;Trusted_Connection=true;</code></div>
+              <div>• SQL Express: <code>Server=.\\SQLEXPRESS;Database=db;Trusted_Connection=true;</code></div>
             </div>
           </div>
 
           <Button 
             onClick={handleTestConnection}
-            disabled={isConnecting}
+            disabled={isConnecting || !connectionString.trim()}
             className="w-full"
             variant="hero"
             size="lg"
@@ -175,12 +173,12 @@ const DatabaseConnection = ({ onConnectionSuccess }: DatabaseConnectionProps) =>
             {isConnecting ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                Loading Database Schema...
+                Analyzing Database Schema...
               </>
             ) : (
               <>
                 <Database className="w-4 h-4" />
-                Load Supabase Tables
+                Connect & Analyze Database
               </>
             )}
           </Button>
