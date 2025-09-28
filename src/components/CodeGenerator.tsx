@@ -411,7 +411,7 @@ namespace GenNettaApp.Controllers
 <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2>${tableName}s</h2>
-        <a asp-action="Create" class="btn btn-primary">
+        <a asp-controller="${tableName}" asp-action="Create" class="btn btn-primary">
             <i class="fas fa-plus"></i> Create New ${tableName}
         </a>
     </div>
@@ -435,13 +435,13 @@ namespace GenNettaApp.Controllers
                                 <td>@Html.DisplayFor(modelItem => item.CreatedAt)</td>
                                 <td>
                                     <div class="btn-group" role="group">
-                                        <a asp-action="Details" asp-route-id="@item.Id" class="btn btn-sm btn-outline-info">
+                                        <a asp-controller="${tableName}" asp-action="Details" asp-route-id="@item.Id" class="btn btn-sm btn-outline-info">
                                             <i class="fas fa-eye"></i> Details
                                         </a>
-                                        <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-outline-warning">
+                                        <a asp-controller="${tableName}" asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-outline-warning">
                                             <i class="fas fa-edit"></i> Edit
                                         </a>
-                                        <a asp-action="Delete" asp-route-id="@item.Id" class="btn btn-sm btn-outline-danger">
+                                        <a asp-controller="${tableName}" asp-action="Delete" asp-route-id="@item.Id" class="btn btn-sm btn-outline-danger">
                                             <i class="fas fa-trash"></i> Delete
                                         </a>
                                     </div>
@@ -485,10 +485,10 @@ namespace GenNettaApp.Controllers
                 </div>
                 <div class="card-footer">
                     <div class="btn-group">
-                        <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-warning">
+                        <a asp-controller="${tableName}" asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-warning">
                             <i class="fas fa-edit"></i> Edit
                         </a>
-                        <a asp-action="Index" class="btn btn-secondary">
+                        <a asp-controller="${tableName}" asp-action="Index" class="btn btn-secondary">
                             <i class="fas fa-arrow-left"></i> Back to List
                         </a>
                     </div>
@@ -512,7 +512,7 @@ namespace GenNettaApp.Controllers
                     <h4>Create New ${tableName}</h4>
                 </div>
                 <div class="card-body">
-                    <form asp-action="Create">
+                    <form asp-controller="${tableName}" asp-action="Create">
                         <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
                         
                         <div class="form-group mb-3">
@@ -525,7 +525,7 @@ namespace GenNettaApp.Controllers
                             <button type="submit" class="btn btn-primary">
                                 <i class="fas fa-save"></i> Create
                             </button>
-                            <a asp-action="Index" class="btn btn-secondary">
+                            <a asp-controller="${tableName}" asp-action="Index" class="btn btn-secondary">
                                 <i class="fas fa-times"></i> Cancel
                             </a>
                         </div>
@@ -554,7 +554,7 @@ namespace GenNettaApp.Controllers
                     <h4>Edit ${tableName}</h4>
                 </div>
                 <div class="card-body">
-                    <form asp-action="Edit">
+                    <form asp-controller="${tableName}" asp-action="Edit">
                         <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
                         
                         <input type="hidden" asp-for="Id" />
@@ -570,7 +570,7 @@ namespace GenNettaApp.Controllers
                             <button type="submit" class="btn btn-warning">
                                 <i class="fas fa-save"></i> Update
                             </button>
-                            <a asp-action="Index" class="btn btn-secondary">
+                            <a asp-controller="${tableName}" asp-action="Index" class="btn btn-secondary">
                                 <i class="fas fa-times"></i> Cancel
                             </a>
                         </div>
@@ -612,13 +612,13 @@ namespace GenNettaApp.Controllers
                         <dd class="col-sm-9">@Html.DisplayFor(model => model.CreatedAt)</dd>
                     </dl>
                     
-                    <form asp-action="Delete">
+                    <form asp-controller="${tableName}" asp-action="Delete">
                         <input type="hidden" asp-for="Id" />
                         <div class="form-group">
                             <button type="submit" class="btn btn-danger">
                                 <i class="fas fa-trash"></i> Delete
                             </button>
-                            <a asp-action="Index" class="btn btn-secondary">
+                            <a asp-controller="${tableName}" asp-action="Index" class="btn btn-secondary">
                                 <i class="fas fa-arrow-left"></i> Back to List
                             </a>
                         </div>
