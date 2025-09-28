@@ -741,6 +741,7 @@ namespace GenNettaApp.Services
     const dbConfigEntities = selectedTables.map(table => 
       `            modelBuilder.Entity<${table}>(entity =>
             {
+                entity.ToTable("${table}"); // Explicitly map to singular table name
                 entity.Property(e => e.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
             });`
     ).join('\n');
