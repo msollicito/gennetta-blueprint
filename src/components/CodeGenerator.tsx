@@ -157,7 +157,7 @@ const CodeGenerator = ({ selectedTables, schema, onReset }: CodeGeneratorProps) 
       const defaultValue = csharpType === 'string' && !column.nullable ? ' = string.Empty' : 
                           column.name.toLowerCase().includes('createdat') && csharpType === 'DateTime' ? ' = DateTime.UtcNow' : '';
       
-      return `${attributeString}        public ${nullableType} ${column.name} { get; set; }${defaultValue}`;
+      return `${attributeString}        public ${nullableType} ${column.name} { get; set; }${defaultValue};`;
     }).join('\n\n');
 
     return `// Generated Entity Model for ${tableName} table
