@@ -2,41 +2,76 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+/* GenNetta Design System - Modern Developer Tool Theme
 All colors MUST be HSL.
 */
 
 @layer base {
   :root {
+    /* Base colors - Clean whites and deep backgrounds */
     --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --foreground: 222 84% 4.9%;
 
+    /* Card system */
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 222 84% 4.9%;
 
+    /* Popover system */
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 222 84% 4.9%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    /* Primary - Deep professional blue */
+    --primary: 217 91% 20%;
+    --primary-foreground: 0 0% 100%;
+    --primary-glow: 217 91% 35%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    /* Secondary - Soft blue-gray */
+    --secondary: 215 25% 96%;
+    --secondary-foreground: 217 91% 20%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    /* Muted tones */
+    --muted: 215 25% 96%;
+    --muted-foreground: 215 16% 47%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    /* Accent - Vibrant purple for highlights */
+    --accent: 262 83% 58%;
+    --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    /* Success - Clean green */
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 100%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    /* Destructive - Warning red */
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
 
-    --radius: 0.5rem;
+    /* Border and input */
+    --border: 215 14% 89%;
+    --input: 215 14% 89%;
+    --ring: 217 91% 20%;
+
+    /* Code theme colors */
+    --code-bg: 222 84% 5%;
+    --code-foreground: 213 31% 91%;
+    --code-comment: 215 14% 51%;
+    --code-keyword: 217 91% 60%;
+    --code-string: 142 71% 45%;
+
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(217 91% 20%), hsl(262 83% 58%));
+    --gradient-hero: linear-gradient(135deg, hsl(217 91% 25%) 0%, hsl(262 83% 58%) 50%, hsl(217 91% 35%) 100%);
+    --gradient-subtle: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(215 25% 98%) 100%);
+
+    /* Shadows */
+    --shadow-primary: 0 10px 40px -10px hsl(217 91% 20% / 0.3);
+    --shadow-glow: 0 0 40px hsl(217 91% 35% / 0.4);
+    --shadow-card: 0 4px 12px -2px hsl(215 25% 27% / 0.08);
+
+    /* Animations */
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-bounce: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+
+    --radius: 0.75rem;
 
     --sidebar-background: 0 0% 98%;
 
@@ -56,33 +91,50 @@ All colors MUST be HSL.
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
+    /* Dark theme - Deep code-friendly colors */
+    --background: 222 84% 5%;
+    --foreground: 213 31% 91%;
 
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
+    --card: 222 84% 6%;
+    --card-foreground: 213 31% 91%;
 
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 222 84% 6%;
+    --popover-foreground: 213 31% 91%;
 
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    --primary: 217 91% 60%;
+    --primary-foreground: 222 84% 5%;
+    --primary-glow: 217 91% 75%;
 
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 215 25% 18%;
+    --secondary-foreground: 213 31% 91%;
 
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    --muted: 215 25% 18%;
+    --muted-foreground: 215 20% 65%;
 
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 262 83% 68%;
+    --accent-foreground: 222 84% 5%;
 
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
+    --success: 142 71% 55%;
+    --success-foreground: 222 84% 5%;
 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    --destructive: 0 84% 70%;
+    --destructive-foreground: 222 84% 5%;
+
+    --border: 215 25% 18%;
+    --input: 215 25% 18%;
+    --ring: 217 91% 60%;
+
+    --code-bg: 222 84% 4%;
+    --code-foreground: 213 31% 95%;
+
+    /* Dark gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(217 91% 60%), hsl(262 83% 68%));
+    --gradient-hero: linear-gradient(135deg, hsl(217 91% 55%) 0%, hsl(262 83% 68%) 50%, hsl(217 91% 65%) 100%);
+    --gradient-subtle: linear-gradient(180deg, hsl(222 84% 5%) 0%, hsl(215 25% 8%) 100%);
+
+    --shadow-primary: 0 10px 40px -10px hsl(217 91% 60% / 0.4);
+    --shadow-glow: 0 0 40px hsl(217 91% 75% / 0.3);
+    --shadow-card: 0 4px 12px -2px hsl(0 0% 0% / 0.3);
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
     --sidebar-primary: 224.3 76.3% 48%;
