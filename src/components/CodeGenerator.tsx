@@ -57,6 +57,17 @@ const CodeGenerator = ({ selectedTables, schema, onReset }: CodeGeneratorProps) 
 
   useEffect(() => {
     if (isGenerating) {
+      console.log("Starting generation for tables:", selectedTables);
+      console.log("Available schema:", Object.keys(schema));
+      selectedTables.forEach(tableName => {
+        const table = schema[tableName];
+        if (table) {
+          console.log(`${tableName} columns:`, table.columns.map(c => `${c.name} (${c.type})`));
+        } else {
+          console.error(`Missing schema for table: ${tableName}`);
+        }
+      });
+      
       const interval = setInterval(() => {
         setGenerationProgress(prev => {
           const newProgress = Math.min(prev + 12.5, 100);
@@ -71,17 +82,19 @@ const CodeGenerator = ({ selectedTables, schema, onReset }: CodeGeneratorProps) 
             // Generate files for all selected tables
             const files = [];
             selectedTables.forEach(table => {
+              const tableSchema = schema[table];
+              const columnCount = tableSchema ? tableSchema.columns.length : 0;
               files.push(
-                { name: `Models/${table}.cs`, type: "Entity Model", lines: 45 },
+                { name: `Models/${table}.cs`, type: "Entity Model", lines: 20 + columnCount * 6 },
                 { name: `Repositories/I${table}Repository.cs`, type: "Repository Interface", lines: 22 },
                 { name: `Repositories/${table}Repository.cs`, type: "Repository Implementation", lines: 89 },
                 { name: `Controllers/${table}sController.cs`, type: "API Controller", lines: 156 },
                 { name: `Controllers/${table}Controller.cs`, type: "MVC Controller", lines: 184 },
-                { name: `Views/${table}/Index.cshtml`, type: "Index View", lines: 67 },
-                { name: `Views/${table}/Details.cshtml`, type: "Details View", lines: 45 },
-                { name: `Views/${table}/Create.cshtml`, type: "Create View", lines: 52 },
-                { name: `Views/${table}/Edit.cshtml`, type: "Edit View", lines: 58 },
-                { name: `Views/${table}/Delete.cshtml`, type: "Delete View", lines: 38 },
+                { name: `Views/${table}/Index.cshtml`, type: "Index View", lines: 40 + columnCount * 3 },
+                { name: `Views/${table}/Details.cshtml`, type: "Details View", lines: 30 + columnCount * 2 },
+                { name: `Views/${table}/Create.cshtml`, type: "Create View", lines: 35 + columnCount * 4 },
+                { name: `Views/${table}/Edit.cshtml`, type: "Edit View", lines: 40 + columnCount * 4 },
+                { name: `Views/${table}/Delete.cshtml`, type: "Delete View", lines: 25 + columnCount * 2 },
                 { name: `Services/${table}Microservice.cs`, type: "Microservice", lines: 203 }
               );
             });
@@ -95,7 +108,7 @@ const CodeGenerator = ({ selectedTables, schema, onReset }: CodeGeneratorProps) 
 
             toast({
               title: "Code Generation Complete!",
-              description: `Successfully generated ${selectedTables.length * 8} files for your .NET Core application.`,
+              description: `Successfully generated ${selectedTables.length * 11 + 4} files using real database schema with ${Object.keys(schema).length} tables.`,
             });
           }
           return newProgress;
@@ -104,7 +117,7 @@ const CodeGenerator = ({ selectedTables, schema, onReset }: CodeGeneratorProps) 
 
       return () => clearInterval(interval);
     }
-  }, [isGenerating, selectedTables.length, toast]);
+  }, [isGenerating, selectedTables.length, schema, toast]);
 
   const handleStartGeneration = () => {
     setIsGenerating(true);
@@ -139,7 +152,12 @@ const CodeGenerator = ({ selectedTables, schema, onReset }: CodeGeneratorProps) 
 
   const generateEntityModel = (tableName: string) => {
     const table = schema[tableName];
-    if (!table) return '';
+    if (!table) {
+      console.error(`Table ${tableName} not found in schema. Available tables:`, Object.keys(schema));
+      return `// ERROR: Table ${tableName} not found in schema`;
+    }
+    
+    console.log(`Generating entity for ${tableName} with columns:`, table.columns.map(c => c.name));
     
     const properties = table.columns.map(column => {
       const csharpType = mapSqlTypeToCSharp(column.type);
