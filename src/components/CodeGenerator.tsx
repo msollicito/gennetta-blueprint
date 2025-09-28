@@ -18,12 +18,25 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
+interface Column {
+  name: string;
+  type: string;
+  nullable: boolean;
+  primaryKey?: boolean;
+}
+
+interface Table {
+  name: string;
+  columns: Column[];
+}
+
 interface CodeGeneratorProps {
   selectedTables: string[];
+  schema: { [tableName: string]: Table };
   onReset: () => void;
 }
 
-const CodeGenerator = ({ selectedTables, onReset }: CodeGeneratorProps) => {
+const CodeGenerator = ({ selectedTables, schema, onReset }: CodeGeneratorProps) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationProgress, setGenerationProgress] = useState(0);
   const [generationComplete, setGenerationComplete] = useState(false);
@@ -100,7 +113,54 @@ const CodeGenerator = ({ selectedTables, onReset }: CodeGeneratorProps) => {
     setCurrentStep(generationSteps[0]);
   };
 
-  const generateEntityModel = (tableName: string) => `// Generated Entity Model for ${tableName} table
+  const pluralize = (word: string): string => {
+    if (word.endsWith('y')) {
+      return word.slice(0, -1) + 'ies';
+    } else if (word.endsWith('s') || word.endsWith('sh') || word.endsWith('ch') || word.endsWith('x') || word.endsWith('z')) {
+      return word + 'es';
+    } else {
+      return word + 's';
+    }
+  };
+
+  const mapSqlTypeToCSharp = (sqlType: string): string => {
+    const type = sqlType.toLowerCase();
+    if (type.includes('varchar') || type.includes('nvarchar') || type.includes('text') || type.includes('char')) return 'string';
+    if (type.includes('int') && !type.includes('bigint')) return 'int';
+    if (type.includes('bigint')) return 'long';
+    if (type.includes('decimal') || type.includes('numeric') || type.includes('money')) return 'decimal';
+    if (type.includes('float') || type.includes('real')) return 'double';
+    if (type.includes('bit')) return 'bool';
+    if (type.includes('datetime') || type.includes('timestamp') || type.includes('date')) return 'DateTime';
+    if (type.includes('uniqueidentifier') || type.includes('uuid')) return 'Guid';
+    if (type.includes('varbinary') || type.includes('binary') || type.includes('image')) return 'byte[]';
+    return 'string'; // Default fallback
+  };
+
+  const generateEntityModel = (tableName: string) => {
+    const table = schema[tableName];
+    if (!table) return '';
+    
+    const properties = table.columns.map(column => {
+      const csharpType = mapSqlTypeToCSharp(column.type);
+      const nullableType = column.nullable && csharpType !== 'string' && csharpType !== 'byte[]' ? `${csharpType}?` : csharpType;
+      
+      let attributes = [];
+      if (column.primaryKey) attributes.push('[Key]');
+      if (!column.nullable && csharpType === 'string') attributes.push('[Required]');
+      if (csharpType === 'string' && !column.type.toLowerCase().includes('text')) {
+        const maxLength = column.type.match(/\((\d+)\)/)?.[1] || '255';
+        attributes.push(`[MaxLength(${maxLength})]`);
+      }
+      
+      const attributeString = attributes.length > 0 ? `        ${attributes.join('\n        ')}\n` : '';
+      const defaultValue = csharpType === 'string' && !column.nullable ? ' = string.Empty' : 
+                          column.name.toLowerCase().includes('createdat') && csharpType === 'DateTime' ? ' = DateTime.UtcNow' : '';
+      
+      return `${attributeString}        public ${nullableType} ${column.name} { get; set; }${defaultValue}`;
+    }).join('\n\n');
+
+    return `// Generated Entity Model for ${tableName} table
 using System.ComponentModel.DataAnnotations;
 using Microsoft.EntityFrameworkCore;
 
@@ -108,19 +168,10 @@ namespace GenNettaApp.Models
 {
     public class ${tableName}
     {
-        [Key]
-        public int Id { get; set; }
-        
-        [Required]
-        [MaxLength(100)]
-        public string Name { get; set; } = string.Empty;
-        
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-        public DateTime? UpdatedAt { get; set; }
-        
-        // Add additional properties based on your database schema
+${properties}
     }
 }`;
+  };
 
   const generateRepository = (tableName: string) => `using GenNettaApp.Models;
 using Microsoft.EntityFrameworkCore;
@@ -326,7 +377,7 @@ namespace GenNettaApp.Controllers
         // POST: ${tableName}s/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create([Bind("Name")] ${tableName} entity)
+        public async Task<IActionResult> Create([Bind("${getBindableColumns(tableName)}")] ${tableName} entity)
         {
             if (ModelState.IsValid)
             {
@@ -352,7 +403,7 @@ namespace GenNettaApp.Controllers
         // POST: ${tableName}s/Edit/5
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int id, [Bind("Id,Name")] ${tableName} entity)
+        public async Task<IActionResult> Edit(int id, [Bind("${getBindableColumns(tableName, true)}")] ${tableName} entity)
         {
             if (id != entity.Id)
                 return NotFound();
@@ -398,15 +449,46 @@ namespace GenNettaApp.Controllers
     }
 }`;
 
-  const generateIndexView = (tableName: string) => `@model IEnumerable<GenNettaApp.Models.${tableName}>
+  const getBindableColumns = (tableName: string, includeId: boolean = false) => {
+    const table = schema[tableName];
+    if (!table) return 'Id';
+    
+    return table.columns
+      .filter(col => includeId || !col.primaryKey)
+      .filter(col => !col.name.toLowerCase().includes('createdat') && !col.name.toLowerCase().includes('updatedat'))
+      .map(col => col.name)
+      .join(',');
+  };
+
+  const getDisplayColumns = (tableName: string) => {
+    const table = schema[tableName];
+    if (!table) return [{ name: 'Id', type: 'int' }];
+    
+    // Get first 4-5 most relevant columns for display (excluding timestamps)
+    return table.columns
+      .filter(col => !col.name.toLowerCase().includes('createdat') && !col.name.toLowerCase().includes('updatedat'))
+      .slice(0, 5);
+  };
+
+  const generateIndexView = (tableName: string) => {
+    const displayCols = getDisplayColumns(tableName);
+    const tableHeaders = displayCols.map(col => 
+      `                            <th>@Html.DisplayNameFor(model => model.${col.name})</th>`
+    ).join('\n');
+    
+    const tableCells = displayCols.map(col => 
+      `                                <td>@Html.DisplayFor(modelItem => item.${col.name})</td>`
+    ).join('\n');
+    
+    return `@model IEnumerable<GenNettaApp.Models.${tableName}>
 
 @{
-    ViewData["Title"] = "${tableName}s";
+    ViewData["Title"] = "${pluralize(tableName)}";
 }
 
 <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2>${tableName}s</h2>
+        <h2>${pluralize(tableName)}</h2>
         <a asp-controller="${tableName}" asp-action="Create" class="btn btn-primary">
             <i class="fas fa-plus"></i> Create New ${tableName}
         </a>
@@ -418,8 +500,7 @@ namespace GenNettaApp.Controllers
                 <table class="table table-striped table-hover">
                     <thead class="table-dark">
                         <tr>
-                            <th>@Html.DisplayNameFor(model => model.Name)</th>
-                            <th>@Html.DisplayNameFor(model => model.CreatedAt)</th>
+${tableHeaders}
                             <th>Actions</th>
                         </tr>
                     </thead>
@@ -427,8 +508,7 @@ namespace GenNettaApp.Controllers
                         @foreach (var item in Model)
                         {
                             <tr>
-                                <td>@Html.DisplayFor(modelItem => item.Name)</td>
-                                <td>@Html.DisplayFor(modelItem => item.CreatedAt)</td>
+${tableCells}
                                 <td>
                                     <div class="btn-group" role="group">
                                         <a asp-controller="${tableName}" asp-action="Details" asp-route-id="@item.Id" class="btn btn-sm btn-outline-info">
@@ -450,8 +530,26 @@ namespace GenNettaApp.Controllers
         </div>
     </div>
 </div>`;
+  };
 
-  const generateDetailsView = (tableName: string) => `@model GenNettaApp.Models.${tableName}
+  const generateDetailsView = (tableName: string) => {
+    const table = schema[tableName];
+    if (!table) return '';
+    
+    const detailFields = table.columns.map(col => {
+      if (col.nullable && !col.type.toLowerCase().includes('varchar') && !col.type.toLowerCase().includes('text')) {
+        return `                        @if (Model.${col.name}.HasValue)
+                        {
+                            <dt class="col-sm-3">@Html.DisplayNameFor(model => model.${col.name})</dt>
+                            <dd class="col-sm-9">@Html.DisplayFor(model => model.${col.name})</dd>
+                        }`;
+      } else {
+        return `                        <dt class="col-sm-3">@Html.DisplayNameFor(model => model.${col.name})</dt>
+                        <dd class="col-sm-9">@Html.DisplayFor(model => model.${col.name})</dd>`;
+      }
+    }).join('\n                        \n');
+    
+    return `@model GenNettaApp.Models.${tableName}
 
 @{
     ViewData["Title"] = "${tableName} Details";
@@ -466,17 +564,7 @@ namespace GenNettaApp.Controllers
                 </div>
                 <div class="card-body">
                     <dl class="row">
-                        <dt class="col-sm-3">@Html.DisplayNameFor(model => model.Name)</dt>
-                        <dd class="col-sm-9">@Html.DisplayFor(model => model.Name)</dd>
-                        
-                        <dt class="col-sm-3">@Html.DisplayNameFor(model => model.CreatedAt)</dt>
-                        <dd class="col-sm-9">@Html.DisplayFor(model => model.CreatedAt)</dd>
-                        
-                        @if (Model.UpdatedAt.HasValue)
-                        {
-                            <dt class="col-sm-3">@Html.DisplayNameFor(model => model.UpdatedAt)</dt>
-                            <dd class="col-sm-9">@Html.DisplayFor(model => model.UpdatedAt)</dd>
-                        }
+${detailFields}
                     </dl>
                 </div>
                 <div class="card-footer">
@@ -493,8 +581,34 @@ namespace GenNettaApp.Controllers
         </div>
     </div>
 </div>`;
+  };
 
-  const generateCreateView = (tableName: string) => `@model GenNettaApp.Models.${tableName}
+  const generateCreateView = (tableName: string) => {
+    const table = schema[tableName];
+    if (!table) return '';
+    
+    const formFields = table.columns
+      .filter(col => !col.primaryKey && !col.name.toLowerCase().includes('createdat') && !col.name.toLowerCase().includes('updatedat'))
+      .map(col => {
+        const inputType = col.type.toLowerCase().includes('text') ? 'textarea' : 'text';
+        const isRequired = !col.nullable ? 'required' : '';
+        
+        if (inputType === 'textarea') {
+          return `                        <div class="form-group mb-3">
+                            <label asp-for="${col.name}" class="form-label"></label>
+                            <textarea asp-for="${col.name}" class="form-control" rows="3" ${isRequired}></textarea>
+                            <span asp-validation-for="${col.name}" class="text-danger"></span>
+                        </div>`;
+        } else {
+          return `                        <div class="form-group mb-3">
+                            <label asp-for="${col.name}" class="form-label"></label>
+                            <input asp-for="${col.name}" class="form-control" ${isRequired} />
+                            <span asp-validation-for="${col.name}" class="text-danger"></span>
+                        </div>`;
+        }
+      }).join('\n                        \n');
+    
+    return `@model GenNettaApp.Models.${tableName}
 
 @{
     ViewData["Title"] = "Create ${tableName}";
@@ -511,11 +625,7 @@ namespace GenNettaApp.Controllers
                     <form asp-controller="${tableName}" asp-action="Create">
                         <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
                         
-                        <div class="form-group mb-3">
-                            <label asp-for="Name" class="form-label"></label>
-                            <input asp-for="Name" class="form-control" />
-                            <span asp-validation-for="Name" class="text-danger"></span>
-                        </div>
+${formFields}
                         
                         <div class="form-group">
                             <button type="submit" class="btn btn-primary">
@@ -535,8 +645,38 @@ namespace GenNettaApp.Controllers
 @section Scripts {
     @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
 }`;
+  };
 
-  const generateEditView = (tableName: string) => `@model GenNettaApp.Models.${tableName}
+  const generateEditView = (tableName: string) => {
+    const table = schema[tableName];
+    if (!table) return '';
+    
+    const formFields = table.columns
+      .filter(col => !col.name.toLowerCase().includes('createdat') && !col.name.toLowerCase().includes('updatedat'))
+      .map(col => {
+        if (col.primaryKey) {
+          return `                        <input type="hidden" asp-for="${col.name}" />`;
+        }
+        
+        const inputType = col.type.toLowerCase().includes('text') ? 'textarea' : 'text';
+        const isRequired = !col.nullable ? 'required' : '';
+        
+        if (inputType === 'textarea') {
+          return `                        <div class="form-group mb-3">
+                            <label asp-for="${col.name}" class="form-label"></label>
+                            <textarea asp-for="${col.name}" class="form-control" rows="3" ${isRequired}></textarea>
+                            <span asp-validation-for="${col.name}" class="text-danger"></span>
+                        </div>`;
+        } else {
+          return `                        <div class="form-group mb-3">
+                            <label asp-for="${col.name}" class="form-label"></label>
+                            <input asp-for="${col.name}" class="form-control" ${isRequired} />
+                            <span asp-validation-for="${col.name}" class="text-danger"></span>
+                        </div>`;
+        }
+      }).join('\n                        \n');
+    
+    return `@model GenNettaApp.Models.${tableName}
 
 @{
     ViewData["Title"] = "Edit ${tableName}";
@@ -553,14 +693,7 @@ namespace GenNettaApp.Controllers
                     <form asp-controller="${tableName}" asp-action="Edit">
                         <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
                         
-                        <input type="hidden" asp-for="Id" />
-                        <input type="hidden" asp-for="CreatedAt" />
-                        
-                        <div class="form-group mb-3">
-                            <label asp-for="Name" class="form-label"></label>
-                            <input asp-for="Name" class="form-control" />
-                            <span asp-validation-for="Name" class="text-danger"></span>
-                        </div>
+${formFields}
                         
                         <div class="form-group">
                             <button type="submit" class="btn btn-warning">
@@ -580,8 +713,31 @@ namespace GenNettaApp.Controllers
 @section Scripts {
     @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
 }`;
+  };
 
-  const generateDeleteView = (tableName: string) => `@model GenNettaApp.Models.${tableName}
+  const generateDeleteView = (tableName: string) => {
+    const table = schema[tableName];
+    if (!table) return '';
+    
+    const displayFields = table.columns
+      .filter(col => !col.name.toLowerCase().includes('updatedat'))
+      .map(col => {
+        if (col.nullable && !col.type.toLowerCase().includes('varchar') && !col.type.toLowerCase().includes('text')) {
+          return `                        @if (Model.${col.name}.HasValue)
+                        {
+                            <dt class="col-sm-3">@Html.DisplayNameFor(model => model.${col.name})</dt>
+                            <dd class="col-sm-9">@Html.DisplayFor(model => model.${col.name})</dd>
+                        }`;
+        } else {
+          return `                        <dt class="col-sm-3">@Html.DisplayNameFor(model => model.${col.name})</dt>
+                        <dd class="col-sm-9">@Html.DisplayFor(model => model.${col.name})</dd>`;
+        }
+      }).join('\n                        \n');
+
+    const primaryKeyField = table.columns.find(col => col.primaryKey);
+    const primaryKeyName = primaryKeyField ? primaryKeyField.name : 'Id';
+    
+    return `@model GenNettaApp.Models.${tableName}
 
 @{
     ViewData["Title"] = "Delete ${tableName}";
@@ -601,15 +757,11 @@ namespace GenNettaApp.Controllers
                     </div>
                     
                     <dl class="row">
-                        <dt class="col-sm-3">@Html.DisplayNameFor(model => model.Name)</dt>
-                        <dd class="col-sm-9">@Html.DisplayFor(model => model.Name)</dd>
-                        
-                        <dt class="col-sm-3">@Html.DisplayNameFor(model => model.CreatedAt)</dt>
-                        <dd class="col-sm-9">@Html.DisplayFor(model => model.CreatedAt)</dd>
+${displayFields}
                     </dl>
                     
                     <form asp-controller="${tableName}" asp-action="Delete">
-                        <input type="hidden" asp-for="Id" />
+                        <input type="hidden" asp-for="${primaryKeyName}" />
                         <div class="form-group">
                             <button type="submit" class="btn btn-danger">
                                 <i class="fas fa-trash"></i> Delete
@@ -624,6 +776,7 @@ namespace GenNettaApp.Controllers
         </div>
     </div>
 </div>`;
+  };
 
   const generateLayoutView = () => `<!DOCTYPE html>
 <html lang="en">

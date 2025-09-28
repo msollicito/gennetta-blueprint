@@ -7,8 +7,20 @@ import CodeGenerator from "./CodeGenerator";
 
 type AppStep = "connection" | "schema" | "generation";
 
+interface Column {
+  name: string;
+  type: string;
+  nullable: boolean;
+  primaryKey?: boolean;
+}
+
+interface Table {
+  name: string;
+  columns: Column[];
+}
+
 interface DatabaseSchema {
-  tables: { name: string; columns: string[] }[];
+  tables: { name: string; columns: Column[] }[];
 }
 
 const GenNettaApp = () => {
@@ -55,6 +67,14 @@ const GenNettaApp = () => {
       case "generation":
         return selectedTables.length > 0;
     }
+  };
+
+  const convertSchemaToMap = (schema: DatabaseSchema) => {
+    const schemaMap: { [tableName: string]: Table } = {};
+    schema.tables.forEach(table => {
+      schemaMap[table.name] = table;
+    });
+    return schemaMap;
   };
 
   return (
@@ -124,10 +144,13 @@ const GenNettaApp = () => {
           </TabsContent>
 
           <TabsContent value="generation" className="mt-0">
-            <CodeGenerator 
-              selectedTables={selectedTables}
-              onReset={handleReset}
-            />
+            {databaseSchema && (
+              <CodeGenerator 
+                selectedTables={selectedTables}
+                schema={convertSchemaToMap(databaseSchema)}
+                onReset={handleReset}
+              />
+            )}
           </TabsContent>
         </Tabs>
       </main>

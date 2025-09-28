@@ -8,8 +8,24 @@ import { Badge } from "@/components/ui/badge";
 import { Database, CheckCircle, AlertCircle, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
+interface Column {
+  name: string;
+  type: string;
+  nullable: boolean;
+  primaryKey?: boolean;
+}
+
+interface Table {
+  name: string;
+  columns: Column[];
+}
+
+interface DatabaseSchema {
+  tables: Table[];
+}
+
 interface DatabaseConnectionProps {
-  onConnectionSuccess: (connectionString: string, schema: any) => void;
+  onConnectionSuccess: (connectionString: string, schema: DatabaseSchema) => void;
 }
 
 const DatabaseConnection = ({ onConnectionSuccess }: DatabaseConnectionProps) => {
@@ -35,13 +51,64 @@ const DatabaseConnection = ({ onConnectionSuccess }: DatabaseConnectionProps) =>
       // Simulate database connection and schema analysis
       await new Promise(resolve => setTimeout(resolve, 2000));
       
-      // Mock schema data for demo
+      // Mock schema data for demo - with proper column metadata
       const mockSchema = {
         tables: [
-          { name: "Users", columns: ["Id", "Name", "Email", "CreatedAt"] },
-          { name: "Products", columns: ["Id", "Name", "Price", "CategoryId"] },
-          { name: "Orders", columns: ["Id", "UserId", "ProductId", "Quantity", "OrderDate"] },
-          { name: "Categories", columns: ["Id", "Name", "Description"] }
+          { 
+            name: "User", 
+            columns: [
+              { name: "Id", type: "int", nullable: false, primaryKey: true },
+              { name: "FirstName", type: "nvarchar(50)", nullable: false },
+              { name: "LastName", type: "nvarchar(50)", nullable: false },
+              { name: "Email", type: "nvarchar(255)", nullable: false },
+              { name: "Phone", type: "nvarchar(20)", nullable: true },
+              { name: "DateOfBirth", type: "date", nullable: true },
+              { name: "IsActive", type: "bit", nullable: false },
+              { name: "CreatedAt", type: "datetime2", nullable: false },
+              { name: "UpdatedAt", type: "datetime2", nullable: true }
+            ]
+          },
+          { 
+            name: "Product", 
+            columns: [
+              { name: "Id", type: "int", nullable: false, primaryKey: true },
+              { name: "Name", type: "nvarchar(100)", nullable: false },
+              { name: "Description", type: "nvarchar(500)", nullable: true },
+              { name: "Price", type: "decimal(18,2)", nullable: false },
+              { name: "CategoryId", type: "int", nullable: false },
+              { name: "SKU", type: "nvarchar(50)", nullable: false },
+              { name: "StockQuantity", type: "int", nullable: false },
+              { name: "IsActive", type: "bit", nullable: false },
+              { name: "CreatedAt", type: "datetime2", nullable: false },
+              { name: "UpdatedAt", type: "datetime2", nullable: true }
+            ]
+          },
+          { 
+            name: "Order", 
+            columns: [
+              { name: "Id", type: "int", nullable: false, primaryKey: true },
+              { name: "UserId", type: "int", nullable: false },
+              { name: "OrderNumber", type: "nvarchar(50)", nullable: false },
+              { name: "OrderDate", type: "datetime2", nullable: false },
+              { name: "TotalAmount", type: "decimal(18,2)", nullable: false },
+              { name: "Status", type: "nvarchar(20)", nullable: false },
+              { name: "ShippingAddress", type: "nvarchar(500)", nullable: false },
+              { name: "CreatedAt", type: "datetime2", nullable: false },
+              { name: "UpdatedAt", type: "datetime2", nullable: true }
+            ]
+          },
+          { 
+            name: "Category", 
+            columns: [
+              { name: "Id", type: "int", nullable: false, primaryKey: true },
+              { name: "Name", type: "nvarchar(100)", nullable: false },
+              { name: "Description", type: "nvarchar(255)", nullable: true },
+              { name: "ParentCategoryId", type: "int", nullable: true },
+              { name: "IsActive", type: "bit", nullable: false },
+              { name: "CreatedAt", type: "datetime2", nullable: false },
+              { name: "UpdatedAt", type: "datetime2", nullable: true }
+            ]
+          }
         ]
       };
 

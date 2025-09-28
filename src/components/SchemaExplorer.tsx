@@ -5,9 +5,21 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, ChevronRight, Database, FileCode, Settings } from "lucide-react";
 
+interface Column {
+  name: string;
+  type: string;
+  nullable: boolean;
+  primaryKey?: boolean;
+}
+
+interface Table {
+  name: string;
+  columns: Column[];
+}
+
 interface SchemaExplorerProps {
   schema: {
-    tables: { name: string; columns: string[] }[];
+    tables: Table[];
   };
   onProceedToGeneration: (selectedTables: string[]) => void;
 }
@@ -118,11 +130,26 @@ const SchemaExplorer = ({ schema, onProceedToGeneration }: SchemaExplorerProps) 
             {expandedTables.includes(table.name) && (
               <div className="mt-4 ml-8 pl-4 border-l-2 border-border">
                 <h4 className="text-sm font-medium mb-2 text-muted-foreground">Columns:</h4>
-                <div className="flex flex-wrap gap-2">
-                  {table.columns.map((column) => (
-                    <Badge key={column} variant="outline" className="text-xs">
-                      {column}
-                    </Badge>
+                <div className="text-xs text-muted-foreground space-y-1">
+                  {table.columns.map((column, index) => (
+                    <div key={index} className="flex items-center justify-between py-1 px-2 bg-muted/30 rounded">
+                      <span className="font-mono">{column.name}</span>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="text-xs px-1 py-0">
+                          {column.type}
+                        </Badge>
+                        {column.primaryKey && (
+                          <Badge variant="default" className="text-xs px-1 py-0 bg-primary/10 text-primary">
+                            PK
+                          </Badge>
+                        )}
+                        {!column.nullable && (
+                          <Badge variant="secondary" className="text-xs px-1 py-0">
+                            NOT NULL
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
                   ))}
                 </div>
               </div>
