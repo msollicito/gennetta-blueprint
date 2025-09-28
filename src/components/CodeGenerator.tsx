@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import JSZip from "jszip";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -84,6 +85,294 @@ const CodeGenerator = ({ selectedTables, onReset }: CodeGeneratorProps) => {
     setGenerationProgress(0);
     setGenerationComplete(false);
     setCurrentStep(generationSteps[0]);
+  };
+
+  const handleDownloadProject = async () => {
+    const zip = new JSZip();
+    
+    // Create project structure
+    const projectFiles = {
+      "GenNettaApp.sln": `Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "GenNettaApp", "GenNettaApp\\GenNettaApp.csproj", "{${Math.random().toString(36).substring(7).toUpperCase()}}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+EndGlobal`,
+      "GenNettaApp/GenNettaApp.csproj": `<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="8.0.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="8.0.0" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.0" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.Google" Version="8.0.0" />
+  </ItemGroup>
+</Project>`,
+      "GenNettaApp/Program.cs": `using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// Add services to the container.
+builder.Services.AddDbContext<ApplicationDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// Add JWT authentication
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = builder.Configuration["Jwt:Issuer"],
+            ValidAudience = builder.Configuration["Jwt:Audience"],
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
+        };
+    });
+
+builder.Services.AddControllers();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
+var app = builder.Build();
+
+// Configure the HTTP request pipeline.
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
+app.UseHttpsRedirection();
+app.UseAuthentication();
+app.UseAuthorization();
+app.MapControllers();
+
+app.Run();`,
+      "GenNettaApp/Models/User.cs": mockCodePreview,
+      "GenNettaApp/Models/ApplicationDbContext.cs": `using Microsoft.EntityFrameworkCore;
+
+namespace GenNettaApp.Models
+{
+    public class ApplicationDbContext : DbContext
+    {
+        public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options) { }
+        
+        public DbSet<User> Users { get; set; }
+        
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            base.OnModelCreating(modelBuilder);
+            
+            modelBuilder.Entity<User>(entity =>
+            {
+                entity.HasIndex(e => e.Email).IsUnique();
+                entity.Property(e => e.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
+            });
+        }
+    }
+}`,
+      "GenNettaApp/Repositories/IUserRepository.cs": `using GenNettaApp.Models;
+
+namespace GenNettaApp.Repositories
+{
+    public interface IUserRepository
+    {
+        Task<IEnumerable<User>> GetAllAsync();
+        Task<User?> GetByIdAsync(int id);
+        Task<User> CreateAsync(User user);
+        Task<User> UpdateAsync(User user);
+        Task DeleteAsync(int id);
+    }
+}`,
+      "GenNettaApp/Repositories/UserRepository.cs": `using GenNettaApp.Models;
+using Microsoft.EntityFrameworkCore;
+
+namespace GenNettaApp.Repositories
+{
+    public class UserRepository : IUserRepository
+    {
+        private readonly ApplicationDbContext _context;
+        
+        public UserRepository(ApplicationDbContext context)
+        {
+            _context = context;
+        }
+        
+        public async Task<IEnumerable<User>> GetAllAsync()
+        {
+            return await _context.Users.ToListAsync();
+        }
+        
+        public async Task<User?> GetByIdAsync(int id)
+        {
+            return await _context.Users.FindAsync(id);
+        }
+        
+        public async Task<User> CreateAsync(User user)
+        {
+            _context.Users.Add(user);
+            await _context.SaveChangesAsync();
+            return user;
+        }
+        
+        public async Task<User> UpdateAsync(User user)
+        {
+            _context.Entry(user).State = EntityState.Modified;
+            await _context.SaveChangesAsync();
+            return user;
+        }
+        
+        public async Task DeleteAsync(int id)
+        {
+            var user = await _context.Users.FindAsync(id);
+            if (user != null)
+            {
+                _context.Users.Remove(user);
+                await _context.SaveChangesAsync();
+            }
+        }
+    }
+}`,
+      "GenNettaApp/Controllers/UsersController.cs": `using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
+using GenNettaApp.Models;
+using GenNettaApp.Repositories;
+
+namespace GenNettaApp.Controllers
+{
+    [ApiController]
+    [Route("api/[controller]")]
+    [Authorize]
+    public class UsersController : ControllerBase
+    {
+        private readonly IUserRepository _userRepository;
+        
+        public UsersController(IUserRepository userRepository)
+        {
+            _userRepository = userRepository;
+        }
+        
+        [HttpGet]
+        public async Task<ActionResult<IEnumerable<User>>> GetUsers()
+        {
+            var users = await _userRepository.GetAllAsync();
+            return Ok(users);
+        }
+        
+        [HttpGet("{id}")]
+        public async Task<ActionResult<User>> GetUser(int id)
+        {
+            var user = await _userRepository.GetByIdAsync(id);
+            if (user == null)
+                return NotFound();
+            return Ok(user);
+        }
+        
+        [HttpPost]
+        public async Task<ActionResult<User>> CreateUser(User user)
+        {
+            var createdUser = await _userRepository.CreateAsync(user);
+            return CreatedAtAction(nameof(GetUser), new { id = createdUser.Id }, createdUser);
+        }
+        
+        [HttpPut("{id}")]
+        public async Task<IActionResult> UpdateUser(int id, User user)
+        {
+            if (id != user.Id)
+                return BadRequest();
+            
+            await _userRepository.UpdateAsync(user);
+            return NoContent();
+        }
+        
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteUser(int id)
+        {
+            await _userRepository.DeleteAsync(id);
+            return NoContent();
+        }
+    }
+}`,
+      "GenNettaApp/appsettings.json": `{
+  "ConnectionStrings": {
+    "DefaultConnection": "Server=localhost;Database=GenNettaApp;Trusted_Connection=true;TrustServerCertificate=true;"
+  },
+  "Jwt": {
+    "Key": "your-secret-key-here",
+    "Issuer": "GenNettaApp",
+    "Audience": "GenNettaApp"
+  },
+  "Authentication": {
+    "Google": {
+      "ClientId": "your-google-client-id",
+      "ClientSecret": "your-google-client-secret"
+    }
+  },
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  },
+  "AllowedHosts": "*"
+}`,
+      "README.md": `# GenNetta Generated .NET Core Application
+
+This project was generated by GenNetta, a .NET Core code generator.
+
+## Features
+- Entity Framework Core with Repository Pattern
+- MVC Architecture
+- JWT Authentication
+- Google OAuth Integration
+- RESTful API endpoints
+- SQL Server support
+
+## Setup
+1. Update the connection string in appsettings.json
+2. Configure Google OAuth credentials
+3. Run database migrations: \`dotnet ef database update\`
+4. Run the application: \`dotnet run\`
+
+## Generated for Tables: ${selectedTables.join(', ')}
+`
+    };
+    
+    // Add all files to zip
+    Object.entries(projectFiles).forEach(([path, content]) => {
+      zip.file(path, content);
+    });
+    
+    // Generate and download zip
+    const blob = await zip.generateAsync({ type: "blob" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `GenNettaApp_${selectedTables.join('_')}_${Date.now()}.zip`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    toast({
+      title: "Download Complete!",
+      description: "Your .NET Core project has been downloaded successfully.",
+    });
   };
 
   const mockCodePreview = `
@@ -272,7 +561,7 @@ namespace GenNettaApp.Models
           </Tabs>
 
           <div className="flex gap-4">
-            <Button variant="hero" size="lg" className="flex-1">
+            <Button variant="hero" size="lg" className="flex-1" onClick={handleDownloadProject}>
               <Download className="w-4 h-4" />
               Download Complete Project
             </Button>
