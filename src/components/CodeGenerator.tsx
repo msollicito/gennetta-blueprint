@@ -64,11 +64,11 @@ const CodeGenerator = ({ selectedTables, onReset }: CodeGeneratorProps) => {
                 { name: `Repositories/${table}Repository.cs`, type: "Repository Implementation", lines: 89 },
                 { name: `Controllers/${table}sController.cs`, type: "API Controller", lines: 156 },
                 { name: `Controllers/${table}Controller.cs`, type: "MVC Controller", lines: 184 },
-                { name: `Views/${table}s/Index.cshtml`, type: "Index View", lines: 67 },
-                { name: `Views/${table}s/Details.cshtml`, type: "Details View", lines: 45 },
-                { name: `Views/${table}s/Create.cshtml`, type: "Create View", lines: 52 },
-                { name: `Views/${table}s/Edit.cshtml`, type: "Edit View", lines: 58 },
-                { name: `Views/${table}s/Delete.cshtml`, type: "Delete View", lines: 38 },
+                { name: `Views/${table}/Index.cshtml`, type: "Index View", lines: 67 },
+                { name: `Views/${table}/Details.cshtml`, type: "Details View", lines: 45 },
+                { name: `Views/${table}/Create.cshtml`, type: "Create View", lines: 52 },
+                { name: `Views/${table}/Edit.cshtml`, type: "Edit View", lines: 58 },
+                { name: `Views/${table}/Delete.cshtml`, type: "Delete View", lines: 38 },
                 { name: `Services/${table}Microservice.cs`, type: "Microservice", lines: 203 }
               );
             });
@@ -1164,11 +1164,11 @@ dotnet ef database update
       projectFiles[`GenNettaApp/Repositories/${tableName}Repository.cs`] = generateRepository(tableName);
       projectFiles[`GenNettaApp/Controllers/${tableName}sController.cs`] = generateController(tableName);
       projectFiles[`GenNettaApp/Controllers/${tableName}Controller.cs`] = generateMvcController(tableName);
-      projectFiles[`GenNettaApp/Views/${tableName}s/Index.cshtml`] = generateIndexView(tableName);
-      projectFiles[`GenNettaApp/Views/${tableName}s/Details.cshtml`] = generateDetailsView(tableName);
-      projectFiles[`GenNettaApp/Views/${tableName}s/Create.cshtml`] = generateCreateView(tableName);
-      projectFiles[`GenNettaApp/Views/${tableName}s/Edit.cshtml`] = generateEditView(tableName);
-      projectFiles[`GenNettaApp/Views/${tableName}s/Delete.cshtml`] = generateDeleteView(tableName);
+      projectFiles[`GenNettaApp/Views/${tableName}/Index.cshtml`] = generateIndexView(tableName);
+      projectFiles[`GenNettaApp/Views/${tableName}/Details.cshtml`] = generateDetailsView(tableName);
+      projectFiles[`GenNettaApp/Views/${tableName}/Create.cshtml`] = generateCreateView(tableName);
+      projectFiles[`GenNettaApp/Views/${tableName}/Edit.cshtml`] = generateEditView(tableName);
+      projectFiles[`GenNettaApp/Views/${tableName}/Delete.cshtml`] = generateDeleteView(tableName);
       projectFiles[`GenNettaApp/Services/${tableName}Service.cs`] = generateMicroservice(tableName);
     });
 
