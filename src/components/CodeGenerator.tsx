@@ -676,6 +676,9 @@ namespace GenNettaApp.Controllers
 </body>
 </html>`;
 
+  const generateValidationScriptsPartial = () => `<script src="~/lib/jquery-validation/dist/jquery.validate.min.js"></script>
+<script src="~/lib/jquery-validation-unobtrusive/jquery.validate.unobtrusive.min.js"></script>`;
+
   const generateMicroservice = (tableName: string) => `using GenNettaApp.Models;
 using GenNettaApp.Repositories;
 
@@ -1181,6 +1184,7 @@ dotnet ef database update
 
     // Add shared layout
     projectFiles[`GenNettaApp/Views/Shared/_Layout.cshtml`] = generateLayoutView();
+    projectFiles[`GenNettaApp/Views/Shared/_ValidationScriptsPartial.cshtml`] = generateValidationScriptsPartial();
     
     // Add all files to zip
     Object.entries(projectFiles).forEach(([path, content]) => {
