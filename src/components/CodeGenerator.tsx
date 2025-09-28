@@ -55,17 +55,23 @@ const CodeGenerator = ({ selectedTables, onReset }: CodeGeneratorProps) => {
             setGenerationComplete(true);
             setIsGenerating(false);
             
-            // Mock generated files
-            setGeneratedFiles([
-              { name: "Models/User.cs", type: "Entity Model", lines: 45 },
-              { name: "Models/Product.cs", type: "Entity Model", lines: 38 },
-              { name: "Repositories/IUserRepository.cs", type: "Repository Interface", lines: 22 },
-              { name: "Repositories/UserRepository.cs", type: "Repository Implementation", lines: 89 },
-              { name: "Controllers/UsersController.cs", type: "MVC Controller", lines: 156 },
-              { name: "Services/UserMicroservice.cs", type: "Microservice", lines: 203 },
+            // Generate files for all selected tables
+            const files = [];
+            selectedTables.forEach(table => {
+              files.push(
+                { name: `Models/${table}.cs`, type: "Entity Model", lines: 45 },
+                { name: `Repositories/I${table}Repository.cs`, type: "Repository Interface", lines: 22 },
+                { name: `Repositories/${table}Repository.cs`, type: "Repository Implementation", lines: 89 },
+                { name: `Controllers/${table}sController.cs`, type: "MVC Controller", lines: 156 },
+                { name: `Services/${table}Microservice.cs`, type: "Microservice", lines: 203 }
+              );
+            });
+            files.push(
+              { name: "Models/ApplicationDbContext.cs", type: "Database Context", lines: 67 },
               { name: "Auth/GoogleOAuthConfig.cs", type: "Authentication", lines: 67 },
               { name: "Program.cs", type: "Application Entry", lines: 78 }
-            ]);
+            );
+            setGeneratedFiles(files);
 
             toast({
               title: "Code Generation Complete!",
@@ -87,9 +93,266 @@ const CodeGenerator = ({ selectedTables, onReset }: CodeGeneratorProps) => {
     setCurrentStep(generationSteps[0]);
   };
 
+  const generateEntityModel = (tableName: string) => `// Generated Entity Model for ${tableName} table
+using System.ComponentModel.DataAnnotations;
+using Microsoft.EntityFrameworkCore;
+
+namespace GenNettaApp.Models
+{
+    public class ${tableName}
+    {
+        [Key]
+        public int Id { get; set; }
+        
+        [Required]
+        [MaxLength(100)]
+        public string Name { get; set; } = string.Empty;
+        
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime? UpdatedAt { get; set; }
+        
+        // Add additional properties based on your database schema
+    }
+}`;
+
+  const generateRepository = (tableName: string) => `using GenNettaApp.Models;
+using Microsoft.EntityFrameworkCore;
+
+namespace GenNettaApp.Repositories
+{
+    public interface I${tableName}Repository
+    {
+        Task<IEnumerable<${tableName}>> GetAllAsync();
+        Task<${tableName}?> GetByIdAsync(int id);
+        Task<${tableName}> CreateAsync(${tableName} entity);
+        Task<${tableName}> UpdateAsync(${tableName} entity);
+        Task DeleteAsync(int id);
+    }
+    
+    public class ${tableName}Repository : I${tableName}Repository
+    {
+        private readonly ApplicationDbContext _context;
+        
+        public ${tableName}Repository(ApplicationDbContext context)
+        {
+            _context = context;
+        }
+        
+        public async Task<IEnumerable<${tableName}>> GetAllAsync()
+        {
+            return await _context.${tableName}s.ToListAsync();
+        }
+        
+        public async Task<${tableName}?> GetByIdAsync(int id)
+        {
+            return await _context.${tableName}s.FindAsync(id);
+        }
+        
+        public async Task<${tableName}> CreateAsync(${tableName} entity)
+        {
+            _context.${tableName}s.Add(entity);
+            await _context.SaveChangesAsync();
+            return entity;
+        }
+        
+        public async Task<${tableName}> UpdateAsync(${tableName} entity)
+        {
+            entity.UpdatedAt = DateTime.UtcNow;
+            _context.Entry(entity).State = EntityState.Modified;
+            await _context.SaveChangesAsync();
+            return entity;
+        }
+        
+        public async Task DeleteAsync(int id)
+        {
+            var entity = await _context.${tableName}s.FindAsync(id);
+            if (entity != null)
+            {
+                _context.${tableName}s.Remove(entity);
+                await _context.SaveChangesAsync();
+            }
+        }
+    }
+}`;
+
+  const generateController = (tableName: string) => `using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
+using GenNettaApp.Models;
+using GenNettaApp.Repositories;
+
+namespace GenNettaApp.Controllers
+{
+    [ApiController]
+    [Route("api/[controller]")]
+    [Authorize]
+    public class ${tableName}sController : ControllerBase
+    {
+        private readonly I${tableName}Repository _repository;
+        
+        public ${tableName}sController(I${tableName}Repository repository)
+        {
+            _repository = repository;
+        }
+        
+        [HttpGet]
+        public async Task<ActionResult<IEnumerable<${tableName}>>> Get${tableName}s()
+        {
+            try
+            {
+                var entities = await _repository.GetAllAsync();
+                return Ok(entities);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
+        }
+        
+        [HttpGet("{id}")]
+        public async Task<ActionResult<${tableName}>> Get${tableName}(int id)
+        {
+            try
+            {
+                var entity = await _repository.GetByIdAsync(id);
+                if (entity == null)
+                    return NotFound($"${tableName} with ID {id} not found");
+                return Ok(entity);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
+        }
+        
+        [HttpPost]
+        public async Task<ActionResult<${tableName}>> Create${tableName}(${tableName} entity)
+        {
+            try
+            {
+                if (!ModelState.IsValid)
+                    return BadRequest(ModelState);
+                    
+                var created = await _repository.CreateAsync(entity);
+                return CreatedAtAction(nameof(Get${tableName}), new { id = created.Id }, created);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
+        }
+        
+        [HttpPut("{id}")]
+        public async Task<IActionResult> Update${tableName}(int id, ${tableName} entity)
+        {
+            try
+            {
+                if (id != entity.Id)
+                    return BadRequest("ID mismatch");
+                    
+                if (!ModelState.IsValid)
+                    return BadRequest(ModelState);
+                
+                await _repository.UpdateAsync(entity);
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
+        }
+        
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> Delete${tableName}(int id)
+        {
+            try
+            {
+                await _repository.DeleteAsync(id);
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
+        }
+    }
+}`;
+
+  const generateMicroservice = (tableName: string) => `using GenNettaApp.Models;
+using GenNettaApp.Repositories;
+using Microsoft.AspNetCore.Authorization;
+
+namespace GenNettaApp.Services
+{
+    public interface I${tableName}Service
+    {
+        Task<IEnumerable<${tableName}>> GetAllAsync();
+        Task<${tableName}?> GetByIdAsync(int id);
+        Task<${tableName}> CreateAsync(${tableName} entity);
+        Task<${tableName}> UpdateAsync(${tableName} entity);
+        Task DeleteAsync(int id);
+    }
+    
+    [Authorize]
+    public class ${tableName}Service : I${tableName}Service
+    {
+        private readonly I${tableName}Repository _repository;
+        private readonly ILogger<${tableName}Service> _logger;
+        
+        public ${tableName}Service(I${tableName}Repository repository, ILogger<${tableName}Service> logger)
+        {
+            _repository = repository;
+            _logger = logger;
+        }
+        
+        public async Task<IEnumerable<${tableName}>> GetAllAsync()
+        {
+            _logger.LogInformation("Getting all ${tableName}s");
+            return await _repository.GetAllAsync();
+        }
+        
+        public async Task<${tableName}?> GetByIdAsync(int id)
+        {
+            _logger.LogInformation("Getting ${tableName} with ID: {Id}", id);
+            return await _repository.GetByIdAsync(id);
+        }
+        
+        public async Task<${tableName}> CreateAsync(${tableName} entity)
+        {
+            _logger.LogInformation("Creating new ${tableName}");
+            return await _repository.CreateAsync(entity);
+        }
+        
+        public async Task<${tableName}> UpdateAsync(${tableName} entity)
+        {
+            _logger.LogInformation("Updating ${tableName} with ID: {Id}", entity.Id);
+            return await _repository.UpdateAsync(entity);
+        }
+        
+        public async Task DeleteAsync(int id)
+        {
+            _logger.LogInformation("Deleting ${tableName} with ID: {Id}", id);
+            await _repository.DeleteAsync(id);
+        }
+    }
+}`;
+
   const handleDownloadProject = async () => {
     const zip = new JSZip();
     
+    // Generate DbSets for all tables
+    const dbSets = selectedTables.map(table => `        public DbSet<${table}> ${table}s { get; set; }`).join('\n');
+    const dbConfigEntities = selectedTables.map(table => 
+      `            modelBuilder.Entity<${table}>(entity =>
+            {
+                entity.Property(e => e.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
+            });`
+    ).join('\n');
+
+    // Generate repository registrations
+    const repositoryRegistrations = selectedTables.map(table => 
+      `builder.Services.AddScoped<I${table}Repository, ${table}Repository>();`
+    ).join('\n');
+
     // Create project structure
     const projectFiles = {
       "GenNettaApp.sln": `Microsoft Visual Studio Solution File, Format Version 12.00
@@ -115,18 +378,25 @@ EndGlobal`,
     <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="8.0.0" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.0" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.Google" Version="8.0.0" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
   </ItemGroup>
 </Project>`,
       "GenNettaApp/Program.cs": `using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using GenNettaApp.Models;
+using GenNettaApp.Repositories;
+using GenNettaApp.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// Register repositories
+${repositoryRegistrations}
 
 // Add JWT authentication
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -163,7 +433,6 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();`,
-      "GenNettaApp/Models/User.cs": mockCodePreview,
       "GenNettaApp/Models/ApplicationDbContext.cs": `using Microsoft.EntityFrameworkCore;
 
 namespace GenNettaApp.Models
@@ -172,139 +441,13 @@ namespace GenNettaApp.Models
     {
         public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options) { }
         
-        public DbSet<User> Users { get; set; }
+${dbSets}
         
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
             
-            modelBuilder.Entity<User>(entity =>
-            {
-                entity.HasIndex(e => e.Email).IsUnique();
-                entity.Property(e => e.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
-            });
-        }
-    }
-}`,
-      "GenNettaApp/Repositories/IUserRepository.cs": `using GenNettaApp.Models;
-
-namespace GenNettaApp.Repositories
-{
-    public interface IUserRepository
-    {
-        Task<IEnumerable<User>> GetAllAsync();
-        Task<User?> GetByIdAsync(int id);
-        Task<User> CreateAsync(User user);
-        Task<User> UpdateAsync(User user);
-        Task DeleteAsync(int id);
-    }
-}`,
-      "GenNettaApp/Repositories/UserRepository.cs": `using GenNettaApp.Models;
-using Microsoft.EntityFrameworkCore;
-
-namespace GenNettaApp.Repositories
-{
-    public class UserRepository : IUserRepository
-    {
-        private readonly ApplicationDbContext _context;
-        
-        public UserRepository(ApplicationDbContext context)
-        {
-            _context = context;
-        }
-        
-        public async Task<IEnumerable<User>> GetAllAsync()
-        {
-            return await _context.Users.ToListAsync();
-        }
-        
-        public async Task<User?> GetByIdAsync(int id)
-        {
-            return await _context.Users.FindAsync(id);
-        }
-        
-        public async Task<User> CreateAsync(User user)
-        {
-            _context.Users.Add(user);
-            await _context.SaveChangesAsync();
-            return user;
-        }
-        
-        public async Task<User> UpdateAsync(User user)
-        {
-            _context.Entry(user).State = EntityState.Modified;
-            await _context.SaveChangesAsync();
-            return user;
-        }
-        
-        public async Task DeleteAsync(int id)
-        {
-            var user = await _context.Users.FindAsync(id);
-            if (user != null)
-            {
-                _context.Users.Remove(user);
-                await _context.SaveChangesAsync();
-            }
-        }
-    }
-}`,
-      "GenNettaApp/Controllers/UsersController.cs": `using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Authorization;
-using GenNettaApp.Models;
-using GenNettaApp.Repositories;
-
-namespace GenNettaApp.Controllers
-{
-    [ApiController]
-    [Route("api/[controller]")]
-    [Authorize]
-    public class UsersController : ControllerBase
-    {
-        private readonly IUserRepository _userRepository;
-        
-        public UsersController(IUserRepository userRepository)
-        {
-            _userRepository = userRepository;
-        }
-        
-        [HttpGet]
-        public async Task<ActionResult<IEnumerable<User>>> GetUsers()
-        {
-            var users = await _userRepository.GetAllAsync();
-            return Ok(users);
-        }
-        
-        [HttpGet("{id}")]
-        public async Task<ActionResult<User>> GetUser(int id)
-        {
-            var user = await _userRepository.GetByIdAsync(id);
-            if (user == null)
-                return NotFound();
-            return Ok(user);
-        }
-        
-        [HttpPost]
-        public async Task<ActionResult<User>> CreateUser(User user)
-        {
-            var createdUser = await _userRepository.CreateAsync(user);
-            return CreatedAtAction(nameof(GetUser), new { id = createdUser.Id }, createdUser);
-        }
-        
-        [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateUser(int id, User user)
-        {
-            if (id != user.Id)
-                return BadRequest();
-            
-            await _userRepository.UpdateAsync(user);
-            return NoContent();
-        }
-        
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteUser(int id)
-        {
-            await _userRepository.DeleteAsync(id);
-            return NoContent();
+${dbConfigEntities}
         }
     }
 }`,
@@ -313,7 +456,7 @@ namespace GenNettaApp.Controllers
     "DefaultConnection": "Server=localhost;Database=GenNettaApp;Trusted_Connection=true;TrustServerCertificate=true;"
   },
   "Jwt": {
-    "Key": "your-secret-key-here",
+    "Key": "your-secret-key-here-make-it-at-least-32-characters-long",
     "Issuer": "GenNettaApp",
     "Audience": "GenNettaApp"
   },
@@ -342,6 +485,12 @@ This project was generated by GenNetta, a .NET Core code generator.
 - Google OAuth Integration
 - RESTful API endpoints
 - SQL Server support
+- Complete CRUD operations for all tables
+- Microservices architecture
+- Error handling and logging
+
+## Generated Tables
+${selectedTables.map(table => `- ${table}`).join('\n')}
 
 ## Setup
 1. Update the connection string in appsettings.json
@@ -349,9 +498,32 @@ This project was generated by GenNetta, a .NET Core code generator.
 3. Run database migrations: \`dotnet ef database update\`
 4. Run the application: \`dotnet run\`
 
-## Generated for Tables: ${selectedTables.join(', ')}
+## API Endpoints
+${selectedTables.map(table => `
+### ${table}
+- GET /api/${table}s - Get all ${table}s
+- GET /api/${table}s/{id} - Get ${table} by ID
+- POST /api/${table}s - Create new ${table}
+- PUT /api/${table}s/{id} - Update ${table}
+- DELETE /api/${table}s/{id} - Delete ${table}
+`).join('')}
+
+## Architecture
+- **Models**: Entity Framework models for each table
+- **Repositories**: Repository pattern for data access
+- **Controllers**: RESTful API controllers
+- **Services**: Business logic microservices
+- **Authentication**: JWT + Google OAuth integration
 `
     };
+
+    // Generate files for each table
+    selectedTables.forEach(tableName => {
+      projectFiles[`GenNettaApp/Models/${tableName}.cs`] = generateEntityModel(tableName);
+      projectFiles[`GenNettaApp/Repositories/${tableName}Repository.cs`] = generateRepository(tableName);
+      projectFiles[`GenNettaApp/Controllers/${tableName}sController.cs`] = generateController(tableName);
+      projectFiles[`GenNettaApp/Services/${tableName}Service.cs`] = generateMicroservice(tableName);
+    });
     
     // Add all files to zip
     Object.entries(projectFiles).forEach(([path, content]) => {
