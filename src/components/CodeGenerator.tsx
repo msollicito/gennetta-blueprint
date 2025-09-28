@@ -801,6 +801,12 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 // Register repositories
 ${repositoryRegistrations}
 
+// Register services
+${selectedTables.map(table => `builder.Services.AddScoped<I${table}Service, ${table}Service>();`).join('\n')}
+
+// Add MVC services
+builder.Services.AddControllersWithViews();
+
 // Add JWT authentication
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -813,10 +819,11 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateIssuerSigningKey = true,
             ValidIssuer = builder.Configuration["Jwt:Issuer"],
             ValidAudience = builder.Configuration["Jwt:Audience"],
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"] ?? "default-key"))
         };
     });
 
+// Add API controllers
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -826,13 +833,30 @@ var app = builder.Build();
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
+    app.UseDeveloperExceptionPage();
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+else
+{
+    app.UseExceptionHandler("/Home/Error");
+    app.UseHsts();
+}
 
 app.UseHttpsRedirection();
+app.UseStaticFiles();
+
+app.UseRouting();
+
 app.UseAuthentication();
 app.UseAuthorization();
+
+// Configure MVC routing
+app.MapControllerRoute(
+    name: "default",
+    pattern: "{controller=Home}/{action=Index}/{id?}");
+
+// Configure API routing
 app.MapControllers();
 
 app.Run();`,
@@ -877,13 +901,136 @@ ${dbConfigEntities}
   },
   "AllowedHosts": "*"
 }`,
+      "GenNettaApp/appsettings.Development.json": `{
+  "DetailedErrors": true,
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  }
+}`,
+      "GenNettaApp/Controllers/HomeController.cs": `using Microsoft.AspNetCore.Mvc;
+using GenNettaApp.Models;
+using System.Diagnostics;
+
+namespace GenNettaApp.Controllers
+{
+    public class HomeController : Controller
+    {
+        private readonly ILogger<HomeController> _logger;
+
+        public HomeController(ILogger<HomeController> logger)
+        {
+            _logger = logger;
+        }
+
+        public IActionResult Index()
+        {
+            return View();
+        }
+
+        public IActionResult Privacy()
+        {
+            return View();
+        }
+
+        [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
+        public IActionResult Error()
+        {
+            return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
+        }
+    }
+
+    public class ErrorViewModel
+    {
+        public string? RequestId { get; set; }
+        public bool ShowRequestId => !string.IsNullOrEmpty(RequestId);
+    }
+}`,
+      "GenNettaApp/Views/_ViewStart.cshtml": `@{
+    Layout = "_Layout";
+}`,
+      "GenNettaApp/Views/_ViewImports.cshtml": `@using GenNettaApp
+@using GenNettaApp.Models
+@addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers`,
+      "GenNettaApp/Views/Home/Index.cshtml": `@{
+    ViewData["Title"] = "Home Page";
+}
+
+<div class="text-center">
+    <h1 class="display-4">Welcome to GenNetta App</h1>
+    <p>Learn about <a href="https://docs.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
+    
+    <div class="row mt-5">
+        ${selectedTables.map(table => `
+        <div class="col-md-4 mb-3">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">${table} Management</h5>
+                    <p class="card-text">Manage ${table} records with full CRUD operations.</p>
+                    <a href="/${table}sView" class="btn btn-primary">View ${table}s</a>
+                </div>
+            </div>
+        </div>`).join('')}
+    </div>
+</div>`,
+      "GenNettaApp/wwwroot/css/site.css": `a.navbar-brand {
+  white-space: normal;
+  text-align: center;
+  word-break: break-all;
+}
+
+a {
+  color: #0077cc;
+}
+
+.btn-primary {
+  color: #fff;
+  background-color: #1b6ec2;
+  border-color: #1861ac;
+}
+
+.nav-pills .nav-link.active, .nav-pills .show > .nav-link {
+  color: #fff;
+  background-color: #1b6ec2;
+  border-color: #1861ac;
+}
+
+.border-top {
+  border-top: 1px solid #e5e5e5;
+}
+.border-bottom {
+  border-bottom: 1px solid #e5e5e5;
+}
+
+.box-shadow {
+  box-shadow: 0 .25rem .75rem rgba(0, 0, 0, .05);
+}
+
+button.accept-policy {
+  font-size: 1rem;
+  line-height: inherit;
+}
+
+.footer {
+  position: absolute;
+  bottom: 0;
+  width: 100%;
+  white-space: nowrap;
+  line-height: 60px;
+}`,
+      "GenNettaApp/wwwroot/js/site.js": `// Please see documentation at https://docs.microsoft.com/aspnet/core/client-side/bundling-and-minification
+// for details on configuring this project to bundle and minify static web assets.
+
+// Write your JavaScript code.`,
       "README.md": `# GenNetta Generated .NET Core Application
 
 This project was generated by GenNetta, a .NET Core code generator.
 
 ## Features
 - Entity Framework Core with Repository Pattern
-- MVC Architecture
+- MVC Architecture with Views and API Controllers
 - JWT Authentication
 - Google OAuth Integration
 - RESTful API endpoints
@@ -891,32 +1038,123 @@ This project was generated by GenNetta, a .NET Core code generator.
 - Complete CRUD operations for all tables
 - Microservices architecture
 - Error handling and logging
+- Bootstrap UI styling
 
 ## Generated Tables
 ${selectedTables.map(table => `- ${table}`).join('\n')}
 
-## Setup
-1. Update the connection string in appsettings.json
-2. Configure Google OAuth credentials
-3. Run database migrations: \`dotnet ef database update\`
-4. Run the application: \`dotnet run\`
+## Quick Start
+
+### Prerequisites
+- .NET 8.0 SDK
+- SQL Server (LocalDB, Express, or Full)
+- Visual Studio 2022 or VS Code
+
+### Setup Steps
+1. **Extract the project** to your desired directory
+2. **Update connection string** in \`appsettings.json\`:
+   \`\`\`json
+   "DefaultConnection": "Server=your-server;Database=GenNettaApp;Trusted_Connection=true;TrustServerCertificate=true;"
+   \`\`\`
+3. **Install Entity Framework CLI** (if not already installed):
+   \`\`\`bash
+   dotnet tool install --global dotnet-ef
+   \`\`\`
+4. **Create and run database migrations**:
+   \`\`\`bash
+   cd GenNettaApp
+   dotnet ef migrations add InitialCreate
+   dotnet ef database update
+   \`\`\`
+5. **Run the application**:
+   \`\`\`bash
+   dotnet run
+   \`\`\`
+6. **Access the application**:
+   - Web Interface: \`https://localhost:5001\` or \`http://localhost:5000\`
+   - API Documentation: \`https://localhost:5001/swagger\`
+
+## Project Structure
+\`\`\`
+GenNettaApp/
+├── Controllers/          # API and MVC Controllers
+├── Models/              # Entity Framework models
+├── Repositories/        # Repository pattern implementations  
+├── Services/           # Business logic microservices
+├── Views/              # MVC Razor views
+│   ├── Home/           # Home page views
+│   ├── Shared/         # Layout and shared views
+${selectedTables.map(table => `│   └── ${table}s/         # ${table} CRUD views`).join('\n')}
+├── wwwroot/            # Static files (CSS, JS)
+├── appsettings.json    # Configuration
+└── Program.cs          # Application entry point
+\`\`\`
 
 ## API Endpoints
 ${selectedTables.map(table => `
 ### ${table}
-- GET /api/${table}s - Get all ${table}s
-- GET /api/${table}s/{id} - Get ${table} by ID
-- POST /api/${table}s - Create new ${table}
-- PUT /api/${table}s/{id} - Update ${table}
-- DELETE /api/${table}s/{id} - Delete ${table}
+- \`GET /api/${table}s\` - Get all ${table}s
+- \`GET /api/${table}s/{id}\` - Get ${table} by ID  
+- \`POST /api/${table}s\` - Create new ${table}
+- \`PUT /api/${table}s/{id}\` - Update ${table}
+- \`DELETE /api/${table}s/{id}\` - Delete ${table}
 `).join('')}
 
-## Architecture
-- **Models**: Entity Framework models for each table
-- **Repositories**: Repository pattern for data access
-- **Controllers**: RESTful API controllers
-- **Services**: Business logic microservices
-- **Authentication**: JWT + Google OAuth integration
+## Web Interface
+${selectedTables.map(table => `- **${table} Management**: \`/${table}sView\` - Full CRUD interface`).join('\n')}
+
+## Configuration
+
+### JWT Authentication
+Update the JWT settings in \`appsettings.json\`:
+\`\`\`json
+"Jwt": {
+  "Key": "your-secure-secret-key-at-least-32-characters",
+  "Issuer": "your-app-name",
+  "Audience": "your-app-name"  
+}
+\`\`\`
+
+### Google OAuth (Optional)
+1. Create a Google Cloud project and OAuth 2.0 credentials
+2. Update \`appsettings.json\`:
+   \`\`\`json
+   "Authentication": {
+     "Google": {
+       "ClientId": "your-google-client-id",
+       "ClientSecret": "your-google-client-secret"
+     }
+   }
+   \`\`\`
+
+## Troubleshooting
+
+### Common Issues
+1. **Database Connection Failed**: Verify SQL Server is running and connection string is correct
+2. **Migration Errors**: Ensure EF Core CLI tools are installed
+3. **Port Already in Use**: Change ports in \`launchSettings.json\`
+4. **Authentication Issues**: Verify JWT key is at least 32 characters
+
+### Development Commands
+\`\`\`bash
+# Build the project
+dotnet build
+
+# Run tests (if any)
+dotnet test
+
+# Watch for changes during development
+dotnet watch run
+
+# Create new migration
+dotnet ef migrations add [MigrationName]
+
+# Update database with latest migration
+dotnet ef database update
+\`\`\`
+
+---
+**Generated by GenNetta** - .NET Core Code Generator
 `
     };
 
