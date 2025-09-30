@@ -36,57 +36,89 @@ const DatabaseConnection = ({ onConnectionSuccess }: DatabaseConnectionProps) =>
   const { toast } = useToast();
 
   const handleTestConnection = async () => {
-    if (!connectionString.trim()) {
-      toast({
-        title: "Connection String Required",
-        description: "Please enter a valid SQL Server connection string.",
-        variant: "destructive",
-      });
-      return;
-    }
-
     setIsConnecting(true);
     setConnectionStatus("idle");
 
     try {
-      // Call the edge function to analyze the actual SQL Server database
-      const { data, error } = await supabase.functions.invoke('analyze-sqlserver-schema', {
-        body: { connectionString: connectionString }
-      });
+      // Simulate connection delay
+      await new Promise(resolve => setTimeout(resolve, 1500));
 
-      if (error) {
-        throw new Error(error.message || 'Failed to analyze database schema');
-      }
-
-      if (!data || !data.success) {
-        throw new Error(data?.error || 'Failed to analyze database schema');
-      }
-
-      const schema = {
-        tables: data.tables.map((table: any) => ({
-          name: table.name,
-          columns: table.columns.map((col: any) => ({
-            name: col.name,
-            type: col.type,
-            nullable: col.nullable,
-            primaryKey: col.primaryKey || false
-          }))
-        }))
+      // Mock database schema with sample tables
+      const schema: DatabaseSchema = {
+        tables: [
+          {
+            name: "Users",
+            columns: [
+              { name: "UserId", type: "int", nullable: false, primaryKey: true },
+              { name: "Username", type: "varchar", nullable: false, primaryKey: false },
+              { name: "Email", type: "varchar", nullable: false, primaryKey: false },
+              { name: "PasswordHash", type: "varchar", nullable: false, primaryKey: false },
+              { name: "FirstName", type: "varchar", nullable: true, primaryKey: false },
+              { name: "LastName", type: "varchar", nullable: true, primaryKey: false },
+              { name: "CreatedAt", type: "datetime", nullable: false, primaryKey: false },
+              { name: "LastLoginAt", type: "datetime", nullable: true, primaryKey: false },
+            ]
+          },
+          {
+            name: "Products",
+            columns: [
+              { name: "ProductId", type: "int", nullable: false, primaryKey: true },
+              { name: "ProductName", type: "varchar", nullable: false, primaryKey: false },
+              { name: "Description", type: "text", nullable: true, primaryKey: false },
+              { name: "Price", type: "decimal", nullable: false, primaryKey: false },
+              { name: "StockQuantity", type: "int", nullable: false, primaryKey: false },
+              { name: "CategoryId", type: "int", nullable: true, primaryKey: false },
+              { name: "CreatedAt", type: "datetime", nullable: false, primaryKey: false },
+              { name: "UpdatedAt", type: "datetime", nullable: true, primaryKey: false },
+            ]
+          },
+          {
+            name: "Orders",
+            columns: [
+              { name: "OrderId", type: "int", nullable: false, primaryKey: true },
+              { name: "UserId", type: "int", nullable: false, primaryKey: false },
+              { name: "OrderDate", type: "datetime", nullable: false, primaryKey: false },
+              { name: "TotalAmount", type: "decimal", nullable: false, primaryKey: false },
+              { name: "Status", type: "varchar", nullable: false, primaryKey: false },
+              { name: "ShippingAddress", type: "text", nullable: true, primaryKey: false },
+              { name: "ShippedAt", type: "datetime", nullable: true, primaryKey: false },
+            ]
+          },
+          {
+            name: "OrderItems",
+            columns: [
+              { name: "OrderItemId", type: "int", nullable: false, primaryKey: true },
+              { name: "OrderId", type: "int", nullable: false, primaryKey: false },
+              { name: "ProductId", type: "int", nullable: false, primaryKey: false },
+              { name: "Quantity", type: "int", nullable: false, primaryKey: false },
+              { name: "UnitPrice", type: "decimal", nullable: false, primaryKey: false },
+              { name: "Subtotal", type: "decimal", nullable: false, primaryKey: false },
+            ]
+          },
+          {
+            name: "Categories",
+            columns: [
+              { name: "CategoryId", type: "int", nullable: false, primaryKey: true },
+              { name: "CategoryName", type: "varchar", nullable: false, primaryKey: false },
+              { name: "Description", type: "text", nullable: true, primaryKey: false },
+            ]
+          }
+        ]
       };
 
       setConnectionStatus("success");
       toast({
-        title: "Database Connected!",
-        description: `Successfully analyzed ${schema.tables.length} tables from your SQL Server database.`,
+        title: "Demo Database Loaded!",
+        description: `Successfully loaded ${schema.tables.length} sample tables (Users, Products, Orders, OrderItems, Categories).`,
       });
 
-      onConnectionSuccess(connectionString, schema);
+      onConnectionSuccess("Demo Database - Sample Data", schema);
     } catch (error) {
-      console.error('Database connection error:', error);
+      console.error('Demo load error:', error);
       setConnectionStatus("error");
       toast({
-        title: "Connection Failed",
-        description: error instanceof Error ? error.message : "Unable to connect to the database. Please check your connection string.",
+        title: "Failed to Load Demo",
+        description: error instanceof Error ? error.message : "Unable to load demo data.",
         variant: "destructive",
       });
     } finally {
@@ -120,44 +152,37 @@ const DatabaseConnection = ({ onConnectionSuccess }: DatabaseConnectionProps) =>
     <div className="space-y-6">
       <div className="text-center">
         <h2 className="text-2xl font-bold text-foreground mb-2">
-          Connect to SQL Server Database
+          Demo Database Schema
         </h2>
         <p className="text-muted-foreground">
-          Enter your SQL Server connection string to analyze your actual database schema
+          Click connect to load sample database with Users, Products, Orders, and more
         </p>
       </div>
 
       <Card className="p-6 shadow-card">
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <Label htmlFor="connection-string" className="text-base font-semibold flex items-center gap-2">
+            <Label className="text-base font-semibold flex items-center gap-2">
               {getStatusIcon()}
-              SQL Server Connection String
+              Demo Database Status
             </Label>
             {getStatusBadge()}
           </div>
 
-          <Textarea
-            id="connection-string"
-            placeholder="Server=localhost;Database=MyDatabase;Trusted_Connection=true;"
-            value={connectionString}
-            onChange={(e) => setConnectionString(e.target.value)}
-            rows={3}
-            className="font-mono text-sm"
-          />
-
           <div className="bg-muted/50 p-4 rounded-lg">
-            <h4 className="font-medium text-sm mb-2">Example Connection Strings:</h4>
-            <div className="space-y-1 text-xs font-mono text-muted-foreground">
-              <div>• SQL Server Auth: <code>Server=server;Database=db;User Id=user;Password=pass;</code></div>
-              <div>• Windows Auth: <code>Server=server;Database=db;Trusted_Connection=true;</code></div>
-              <div>• SQL Express: <code>Server=.\\SQLEXPRESS;Database=db;Trusted_Connection=true;</code></div>
+            <h4 className="font-medium text-sm mb-2">Sample Tables Included:</h4>
+            <div className="space-y-1 text-xs text-muted-foreground">
+              <div>• <strong>Users</strong> - User account information with credentials</div>
+              <div>• <strong>Products</strong> - Product catalog with pricing and inventory</div>
+              <div>• <strong>Orders</strong> - Customer orders with status tracking</div>
+              <div>• <strong>OrderItems</strong> - Individual line items for each order</div>
+              <div>• <strong>Categories</strong> - Product categorization</div>
             </div>
           </div>
 
           <Button 
             onClick={handleTestConnection}
-            disabled={isConnecting || !connectionString.trim()}
+            disabled={isConnecting}
             className="w-full"
             variant="hero"
             size="lg"
@@ -165,12 +190,12 @@ const DatabaseConnection = ({ onConnectionSuccess }: DatabaseConnectionProps) =>
             {isConnecting ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                Analyzing Database Schema...
+                Loading Demo Data...
               </>
             ) : (
               <>
                 <Database className="w-4 h-4" />
-                Connect & Analyze Database
+                Load Demo Database
               </>
             )}
           </Button>
